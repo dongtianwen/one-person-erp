@@ -1,0 +1,46 @@
+from pydantic import BaseModel
+from typing import Optional
+from datetime import date
+
+
+class ContractBase(BaseModel):
+    title: str
+    customer_id: int
+    project_id: Optional[int] = None
+    amount: float
+    signed_date: Optional[date] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    status: str = "draft"
+    terms: str = ""
+
+
+class ContractCreate(ContractBase):
+    pass
+
+
+class ContractUpdate(BaseModel):
+    title: Optional[str] = None
+    project_id: Optional[int] = None
+    amount: Optional[float] = None
+    signed_date: Optional[date] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    status: Optional[str] = None
+    terms: Optional[str] = None
+    termination_reason: Optional[str] = None
+
+
+class ContractResponse(ContractBase):
+    id: int
+    contract_no: str
+
+    class Config:
+        from_attributes = True
+
+
+class ContractListResponse(BaseModel):
+    items: list[ContractResponse]
+    total: int
+    page: int
+    page_size: int

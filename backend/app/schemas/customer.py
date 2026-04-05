@@ -1,0 +1,50 @@
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+
+
+class CustomerBase(BaseModel):
+    name: str
+    contact_person: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    company: Optional[str] = None
+    source: str = "other"
+    status: str = "potential"
+    notes: str = ""
+    lost_reason: Optional[str] = None
+
+
+class CustomerCreate(CustomerBase):
+    pass
+
+
+class CustomerUpdate(BaseModel):
+    name: Optional[str] = None
+    contact_person: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    company: Optional[str] = None
+    source: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    lost_reason: Optional[str] = None
+
+
+class CustomerResponse(CustomerBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class CustomerDetailResponse(BaseModel):
+    customer: CustomerResponse
+    projects: list[dict] = []
+    contracts: list[dict] = []
+
+
+class CustomerListResponse(BaseModel):
+    items: list[CustomerResponse]
+    total: int
+    page: int
+    page_size: int
