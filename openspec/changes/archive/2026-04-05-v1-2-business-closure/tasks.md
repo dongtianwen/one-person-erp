@@ -1,0 +1,53 @@
+## 1. 数据库迁移
+
+> 注：v1.1 迁移已完成（file_group_id、settlement_status、settings 表）。以下为 v1.2 新增表。
+
+- [x] 1.1 创建 quotations 表 Alembic 迁移（字段：id, quotation_number, title, customer_id, amount, validity_date, status, content, discount_note, contract_id, created_at, updated_at, is_deleted），索引：status, validity_date
+- [x] 1.2 创建 customer_assets 表 Alembic 迁移（字段：id, customer_id, asset_type, name, expiry_date, supplier, annual_fee, account_info, notes, created_at, updated_at, is_deleted），索引：expiry_date, customer_id
+- [x] 1.3 执行迁移并验证历史数据完整性
+
+- [x] 2.1 创建 `backend/app/core/logging.py`：配置 RotatingFileHandler（10MB/文件，保留30个，logs/目录,ISO 8601时间戳格式）
+- [x] 2.2 实现敏感信息过滤器（密码/Token/API Key → [REDACTED]）
+- [x] 2.6 在 `backend/app/main.py` 集成日志系统初始化
+- [x] 3.1 创建 `backend/app/services/overdue_check.py`：实现全量检查和限流检查两种模式
+- [x] 3.2 实现提醒逾期检查（pending → overdue）
+- [x] 3.3 实现报价单过期检查（draft/sent → expired）
+- [x] 3.4 实现客户资产到期提醒自动生成（幂等保护）
+- [x] 3.5 实现文件索引到期提醒自动生成（幂等保护）
+- [x] 3.6 在服务启动时集成触发点A（全量检查，进程生命周期内仅一次）
+- [x] 3.7 在仪表盘统计接口集成触发点B（限流检查：90天窗口 + 1000条上限）
+- [x] 3.8 为每次检查执行记录日志（触发来源、处理条数、耗时）
+- [x] 4.1 创建 `backend/app/models/quotation.py`：Quotation 模型（SQLAlchemy 2.0，TimestampMixin）
+- [x] 4.2 创建 `backend/app/schemas/quotation.py`：Create/Update/Response Pydantic schemas
+- [x] 4.3 创建 `backend/app/crud/quotation.py`：CRUD 操作 + 编号自动生成（BJ-YYYYMMDD-序号）
+- [x] 4.4 创建 `backend/app/api/endpoints/quotations.py`：RESTful 端点（CRUD + 状态流转 + 筛选）
+- [x] 4.5 实现一键转合同端点 `POST /api/v1/quotations/{id}/convert-to-contract`（事务保证）
+- [x] 4.6 在 `backend/app/models/__init__.py` 和 `backend/app/main.py` 注册新模型和路由
+- [x] 5.1 创建 `frontend/src/api/quotations.js`：API 调用封装
+- [x] 5.2 创建 `frontend/src/views/Quotations.vue`：报价单管理页面（列表、筛选、分页、状态标签）
+- [x] 5.3 实现报价单创建/编辑对话框（客户下拉选择、金额校验、有效期日期选择器）
+- [x] 5.4 实现"一键转合同"按钮和确认流程
+- [x] 5.5 在前端路由和导航菜单中注册报价单模块
+- [x] 6.1 创建 `backend/app/models/customer_asset.py`：CustomerAsset 模型
+- [x] 6.2 创建 `backend/app/schemas/customer_asset.py`：Create/Update/Response Pydantic schemas
+- [x] 6.3 创建 `backend/app/crud/customer_asset.py`：CRUD 操作（按客户筛选）
+- [x] 6.4 创建 `backend/app/api/endpoints/customer_assets.py`：RESTful 端点（嵌套在 /customers/{id}/assets 下）
+- [x] 6.5 注册新模型和路由
+- [x] 7.1 创建 `frontend/src/api/customerAssets.js`：API 调用封装
+- [x] 7.2 在客户详情页新增"资产与托管记录"Tab
+- [x] 7.3 实现资产列表（按到期时间升序、到期高亮、过期标红）
+- [x] 7.4 实现资产新增/编辑/删除操作（含二次确认）
+- [x] 7.5 删除资产时同步删除关联提醒
+- [x] 8.1 后端仪表盘统计接口新增报价转化率指标计算
+- [x] 8.2 前端仪表盘展示报价转化率指标卡片
+- [x] 8.3 后端仪表盘统计接口集成事件驱动逾期检查触发点B
+- [x] 9.1 创建 `backend/app/services/backup.py`：备份验证服务（SQLite ATTACH DATABASE + 核心表记录数对比）
+- [x] 9.2 创建备份历史管理 API（列出备份文件、触发校验、获取校验结果）
+- [x] 9.3 前端备份 UI 升级:新增备份历史列表和校验按钮
+- [x] 9.4 实现临时文件自动清理（try-finally）
+- [x] 10.1 验证数据库迁移：迁移后历史记录总数一致
+- [x] 10.2 验证报价单完整流程:创建 → 发送 → 接受 → 转合同
+- [x] 10.3 验证客户资产完整流程:创建 → 编辑 → 删除 → 到期提醒生成
+- [x] 10.4 验证事件驱动检查:启动检查 + 仪表盘检查均正确执行
+- [x] 10.5 验证日志系统:各场景日志正确记录，敏感信息已过滤
+- [x] 10.6 验证备份:备份创建 + 校验通过 + 临时文件已清理

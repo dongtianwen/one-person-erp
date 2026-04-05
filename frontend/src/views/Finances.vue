@@ -83,6 +83,14 @@
             <span v-else class="text-tertiary">-</span>
           </template>
         </el-table-column>
+        <el-table-column prop="settlement_status" label="结算状态" width="100">
+          <template #default="{ row }">
+            <el-tag v-if="needsSettlement(row)" :type="settlementType(row.settlement_status)" size="small" round>
+              {{ settlementLabels[row.settlement_status] || row.settlement_status }}
+            </el-tag>
+            <span v-else class="text-tertiary">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="80" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="editRecord(row)">编辑</el-button>
@@ -151,6 +159,11 @@
         <el-form-item v-if="form.funding_source === 'personal_advance' || form.funding_source === 'loan'" label="业务说明" required>
           <el-input v-model="form.business_note" type="textarea" :rows="2" placeholder="说明垫付或借款原因" />
         </el-form-item>
+        <el-form-item v-if="form.funding_source === 'personal_advance' || form.funding_source === 'loan'" label="结算状态" required>
+          <el-select v-model="form.settlement_status" placeholder="选择结算状态" style="width: 100%">
+            <el-option v-for="(label, val) in settlementLabels" :key="val" :label="label" :value="val" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="关联记录">
           <el-select v-model="form.related_record_id" placeholder="选择关联记录" filterable clearable style="width: 100%">
             <el-option v-for="r in records" :key="r.id" :label="`${r.type === 'income' ? '收' : '支'} ¥${(r.amount || 0).toLocaleString()} - ${r.description || r.date}`" :value="r.id" :disabled="r.id === editingId" />
@@ -203,7 +216,7 @@ const typeFilter = ref('')
 const statusFilter = ref('')
 const showDialog = ref(false)
 const editingId = ref(null)
-const defaultForm = { type: 'income', amount: 0, category: 'other', description: '', date: '', contract_id: null, invoice_no: '', status: 'pending', funding_source: 'company_account', business_note: '', related_record_id: null, related_note: '' }
+const defaultForm = { type: 'income', amount: 0, category: 'other', description: '', date: '', contract_id: null, invoice_no: '', status: 'pending', funding_source: 'company_account', business_note: '', related_record_id: null, related_note: '', settlement_status: null }
 const form = ref({ ...defaultForm })
 
 const statusLabels = { pending: '待确认', confirmed: '已确认', invoiced: '已开票', paid: '已付款', cancelled: '已取消' }
@@ -218,6 +231,10 @@ const fundingSourceLabels = {
 const statusTypes = { pending: 'warning', confirmed: 'success', invoiced: 'info', paid: 'success', cancelled: 'danger' }
 const categoryLabels = { development: '开发费', design: '设计费', maintenance: '维护费', server: '服务器', office: '办公', other: '其他', '项目收入': '项目收入', 人力: '人力', 外包: '外包' }
 const fieldLabels = { type: '类型', amount: '金额', category: '分类', description: '描述', date: '日期', contract_id: '关联合同', invoice_no: '发票号', status: '状态' }
+
+const settlementLabels = { open: '未结清', partial: '部分归还', closed: '已结清' }
+const settlementTypes = { open: 'danger', partial: 'warning', closed: 'success' }
+const needsSettlement = (row) => ['personal_advance', 'loan'].includes(row.funding_source) && row.settlement_status
 
 const loadData = async () => {
   loading.value = true
@@ -285,6 +302,7 @@ const handleSubmit = async () => {
   if (!form.value.amount || !form.value.date) { ElMessage.warning('请填写金额和日期'); return }
   if (form.value.type === 'expense' && !form.value.funding_source) { ElMessage.warning('支出记录必须填写资金来源'); return }
   if (['personal_advance', 'loan'].includes(form.value.funding_source) && !form.value.business_note) { ElMessage.warning('个人垫付/借款必须填写业务说明'); return }
+  if (['personal_advance', 'loan'].includes(form.value.funding_source) && !form.value.settlement_status) { ElMessage.warning('个人垫付/借款必须填写结算状态'); return }
   if (form.value.related_record_id && !form.value.related_note) { ElMessage.warning('关联记录时必须填写关联说明'); return }
   try {
     if (editingId.value) {

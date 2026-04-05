@@ -21,6 +21,13 @@ router = APIRouter()
 
 @router.get("")
 async def get_dashboard(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Trigger point B: Throttled overdue check on dashboard request
+    try:
+        from app.services.overdue_check import run_dashboard_check
+        await run_dashboard_check(db)
+    except Exception:
+        pass  # Non-blocking: dashboard should still load
+
     now = datetime.utcnow()
     year, month = now.year, now.month
 
@@ -57,6 +64,29 @@ async def get_dashboard(db: AsyncSession = Depends(get_db), current_user: User =
     except Exception:
         accounts_receivable = 0
 
+    # Quotation conversion rate
+    quotation_conversion_rate = 0.0
+    try:
+        from app.models.quotation import Quotation
+        total_q = await db.execute(
+            select(func.count(Quotation.id)).where(
+                Quotation.status != "draft",
+                Quotation.is_deleted == False,
+            )
+        )
+        accepted_q = await db.execute(
+            select(func.count(Quotation.id)).where(
+                Quotation.status == "accepted",
+                Quotation.is_deleted == False,
+            )
+        )
+        total_q_count = total_q.scalar() or 0
+        accepted_q_count = accepted_q.scalar() or 0
+        if total_q_count > 0:
+            quotation_conversion_rate = round(accepted_q_count / total_q_count * 100, 2)
+    except Exception:
+        pass
+
     return {
         "monthly_income": monthly_summary["income"],
         "monthly_expense": monthly_summary["expense"],
@@ -64,7 +94,17 @@ async def get_dashboard(db: AsyncSession = Depends(get_db), current_user: User =
         "active_projects": active_projects,
         "customer_conversion_rate": round(conversion_rate, 2),
         "accounts_receivable": accounts_receivable,
+        "quotation_conversion_rate": quotation_conversion_rate,
     }
+
+
+@router.get("/unsettled-warning")
+async def get_unsettled_warning(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    try:
+        data = await finance_crud.finance_record.get_unsettled_summary(db)
+        return data
+    except Exception:
+        return {"count": 0, "total_amount": 0}
 
 
 @router.get("/revenue-trend")
@@ -229,3 +269,25 @@ async def backup_database(
     shutil.copy2(db_path, backup_path)
 
     return {"message": "备份成功", "backup_path": backup_path, "timestamp": timestamp}
+
+
+@router.get("/backups")
+async def list_backups(
+    current_user: User = Depends(get_current_user),
+):
+    """List all backup files with verification status."""
+    from app.services.backup import list_backups as get_backups
+    return get_backups()
+
+
+@router.post("/backups/{backup_filename}/verify")
+async def verify_backup(
+    backup_filename: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Verify a specific backup file's integrity."""
+    from app.services.backup import verify_backup as do_verify
+    backup_dir = Path("./backups")
+    backup_path = str(backup_dir / backup_filename)
+    result = do_verify(backup_path)
+    return result

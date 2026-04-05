@@ -14,7 +14,7 @@
         </div>
         <div class="metric-body">
           <div class="metric-label">{{ card.label }}</div>
-          <div class="metric-value mono">{{ card.prefix }}{{ formatNumber(card.value) }}</div>
+          <div class="metric-value mono">{{ card.prefix }}{{ formatNumber(card.value) }}{{ card.suffix || '' }}</div>
         </div>
         <div class="metric-bg-icon">
           <el-icon :size="64"><component :is="card.icon" /></el-icon>
@@ -246,6 +246,47 @@
         </div>
       </el-card>
     </div>
+
+    <!-- Backup History -->
+    <el-card v-if="backups.length" class="anim-fade-in-up" style="margin-top: 20px">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">备份历史</span>
+          <el-tag size="small" round>{{ backups.length }} 个文件</el-tag>
+        </div>
+      </template>
+      <el-table :data="backups" style="width: 100%" size="small">
+        <el-table-column prop="filename" label="文件名" min-width="200">
+          <template #default="{ row }">
+            <span class="mono" style="font-size: 12px">{{ row.filename }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="size" label="大小" width="100">
+          <template #default="{ row }">
+            <span class="mono">{{ formatFileSize(row.size) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="备份时间" width="180">
+          <template #default="{ row }">
+            <span class="mono" style="font-size: 12px">{{ row.created_at?.replace('T', ' ') }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="校验状态" width="120">
+          <template #default="{ row }">
+            <el-tag v-if="!row.verification" type="info" size="small" round>未校验</el-tag>
+            <el-tag v-else-if="row.verification.valid" type="success" size="small" round>通过</el-tag>
+            <el-tag v-else type="danger" size="small" round>失败</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="100">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="handleVerify(row.filename)" :loading="verifyingId === row.filename">
+              校验
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
   </div>
 </template>
 
@@ -253,17 +294,19 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
-  TrendCharts, Wallet, Coin, DataBoard,
+  TrendCharts, Wallet, Coin, DataBoard, Tickets,
   Calendar, Document, Clock, Plus, Download, Bell
 } from '@element-plus/icons-vue'
-import { getDashboard, getCustomerFunnel, getProjectStatus, getTodos, getRevenueTrend, backupDatabase } from '../api/dashboard'
+import { getDashboard, getCustomerFunnel, getProjectStatus, getTodos, getRevenueTrend, backupDatabase, listBackups, verifyBackup } from '../api/dashboard'
 
-const metrics = ref({ monthly_income: 0, monthly_expense: 0, monthly_profit: 0, active_projects: 0 })
+const metrics = ref({ monthly_income: 0, monthly_expense: 0, monthly_profit: 0, active_projects: 0, customer_conversion_rate: 0, quotation_conversion_rate: 0 })
 const funnel = ref({})
 const projectStatus = ref({})
 const todos = ref({ tasks: [], expiring_contracts: [], reminders: [] })
 const revenueTrend = ref([])
 const lastBackupTime = ref('')
+const backups = ref([])
+const verifyingId = ref(null)
 
 const stageLabels = { potential: '潜在客户', follow_up: '跟进中', deal: '成交', lost: '流失' }
 const stageColors = { potential: '#94a3b8', follow_up: '#06b6d4', deal: '#10b981', lost: '#f43f5e' }
@@ -275,6 +318,7 @@ const metricCards = computed(() => [
   { key: 'expense', label: '本月支出', value: metrics.value.monthly_expense, prefix: '¥', color: '#f43f5e', glow: 'rgba(244, 63, 94, 0.10)', icon: Wallet },
   { key: 'profit', label: '本月利润', value: metrics.value.monthly_profit, prefix: '¥', color: metrics.value.monthly_profit >= 0 ? '#06b6d4' : '#f43f5e', glow: metrics.value.monthly_profit >= 0 ? 'rgba(6, 182, 212, 0.12)' : 'rgba(244, 63, 94, 0.10)', icon: Coin },
   { key: 'projects', label: '进行中项目', value: metrics.value.active_projects, prefix: '', color: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.12)', icon: DataBoard },
+  { key: 'quotation_rate', label: '报价转化率', value: metrics.value.quotation_conversion_rate || 0, prefix: '', suffix: '%', color: '#f59e0b', glow: 'rgba(245, 158, 11, 0.12)', icon: Tickets },
 ])
 
 const funnelItems = computed(() => {
@@ -350,12 +394,43 @@ const handleBackup = async () => {
     const { data } = await backupDatabase('./backups')
     lastBackupTime.value = data.timestamp
     ElMessage.success('备份成功: ' + data.backup_path)
+    loadBackups()
   } catch {
     ElMessage.error('备份失败')
   }
 }
 
-onMounted(loadData)
+const loadBackups = async () => {
+  try {
+    const { data } = await listBackups()
+    backups.value = data
+  } catch { /* ignore */ }
+}
+
+const handleVerify = async (filename) => {
+  verifyingId.value = filename
+  try {
+    const { data } = await verifyBackup(filename)
+    if (data.valid) {
+      ElMessage.success('备份校验通过')
+    } else {
+      ElMessage.warning('备份校验发现问题: ' + (data.error || '部分表记录数不一致'))
+    }
+    loadBackups()
+  } catch {
+    ElMessage.error('校验失败')
+  } finally {
+    verifyingId.value = null
+  }
+}
+
+const formatFileSize = (bytes) => {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+onMounted(() => { loadData(); loadBackups() })
 </script>
 
 <style scoped>

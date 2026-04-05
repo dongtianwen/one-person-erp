@@ -49,6 +49,10 @@
           <el-icon><FolderOpened /></el-icon>
           <template #title>文件管理</template>
         </el-menu-item>
+        <el-menu-item index="/quotations">
+          <el-icon><Tickets /></el-icon>
+          <template #title>报价单</template>
+        </el-menu-item>
       </el-menu>
 
       <div class="sidebar-bottom">
@@ -99,7 +103,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 import {
-  DataAnalysis, User, Folder, Document, Money, Bell, FolderOpened,
+  DataAnalysis, User, Folder, Document, Money, Bell, FolderOpened, Tickets,
   ArrowDown, SwitchButton, Expand, Fold
 } from '@element-plus/icons-vue'
 
@@ -116,6 +120,7 @@ const pageTitles = {
   '/finances': '财务管理',
   '/reminders': '提醒管理',
   '/file-indexes': '文件管理',
+  '/quotations': '报价单管理',
 }
 
 const currentPageTitle = computed(() => pageTitles[route.path] || '数标云管')

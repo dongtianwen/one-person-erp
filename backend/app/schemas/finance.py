@@ -16,6 +16,7 @@ class FinanceRecordBase(BaseModel):
     business_note: Optional[str] = None
     related_record_id: Optional[int] = None
     related_note: Optional[str] = None
+    settlement_status: Optional[str] = None
 
 
 class FinanceRecordCreate(FinanceRecordBase):
@@ -35,6 +36,7 @@ class FinanceRecordUpdate(BaseModel):
     business_note: Optional[str] = None
     related_record_id: Optional[int] = None
     related_note: Optional[str] = None
+    settlement_status: Optional[str] = None
 
 
 class FinanceRecordResponse(FinanceRecordBase):

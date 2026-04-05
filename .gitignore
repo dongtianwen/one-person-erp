@@ -1,11 +1,10 @@
 # Python
-backend/.venv/
-backend/__pycache__/
-backend/**/__pycache__/
-backend/*.pyc
-backend/.pytest_cache/
-backend/.ruff_cache/
-backend/*.db
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.ruff_cache/
+**/*.db
 
 # Node.js
 frontend/node_modules/

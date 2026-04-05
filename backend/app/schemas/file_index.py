@@ -6,6 +6,7 @@ from datetime import date
 class FileIndexBase(BaseModel):
     file_name: str
     file_type: str
+    file_group_id: Optional[str] = None
     version: Optional[str] = None
     is_current: bool = True
     issue_date: Optional[date] = None

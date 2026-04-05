@@ -70,9 +70,12 @@ async def create_finance_record(
     if record_in.type == "expense" and not record_in.funding_source:
         raise HTTPException(status_code=400, detail="支出记录必须填写资金来源")
 
-    # FIN-007: personal_advance/loan must have business_note
+    # FIN-007: personal_advance/loan must have business_note and settlement_status
     if record_in.funding_source in ("personal_advance", "loan") and not record_in.business_note:
         raise HTTPException(status_code=400, detail="个人垫付/借款必须填写业务说明")
+
+    if record_in.funding_source in ("personal_advance", "loan") and not record_in.settlement_status:
+        raise HTTPException(status_code=400, detail="个人垫付/借款必须填写结算状态")
 
     # FIN-008: related_record requires related_note
     if record_in.related_record_id and not record_in.related_note:
@@ -128,6 +131,11 @@ async def update_finance_record(
         effective_note = record_in.business_note if record_in.business_note is not None else record.business_note
         if not effective_note:
             raise HTTPException(status_code=400, detail="个人垫付/借款必须填写业务说明")
+        effective_settlement = (
+            record_in.settlement_status if record_in.settlement_status is not None else record.settlement_status
+        )
+        if not effective_settlement:
+            raise HTTPException(status_code=400, detail="个人垫付/借款必须填写结算状态")
 
     # FIN-008: related_record requires related_note
     if record_in.related_record_id and not record_in.related_note:
@@ -157,7 +165,10 @@ async def update_finance_record(
         old_val = old_values[field]
         if old_val != new_val:
             await changelog_crud.create_changelog(
-                db, "finance_record", record.id, field,
+                db,
+                "finance_record",
+                record.id,
+                field,
                 str(old_val) if old_val is not None else None,
                 str(new_val) if new_val is not None else None,
                 changed_by=current_user.id,

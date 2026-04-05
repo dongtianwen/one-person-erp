@@ -148,5 +148,15 @@ async def get_versions(
     file_record = await file_index_crud.file_index.get(db, file_id)
     if not file_record:
         raise HTTPException(status_code=404, detail="文件记录不存在")
-    versions = await file_index_crud.file_index.get_versions(db, file_record.file_name, file_record.file_type)
+    versions = await file_index_crud.file_index.get_versions(db, file_record.file_group_id)
+    return [FileIndexResponse.model_validate(v) for v in versions]
+
+
+@router.get("/versions/{group_id}", response_model=list[FileIndexResponse])
+async def get_versions_by_group(
+    group_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    versions = await file_index_crud.file_index.get_versions(db, group_id)
     return [FileIndexResponse.model_validate(v) for v in versions]

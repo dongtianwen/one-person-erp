@@ -7,6 +7,9 @@ from app.models.finance import FinanceRecord
 from app.models.changelog import ChangeLog
 from app.models.reminder import Reminder, ReminderSetting
 from app.models.file_index import FileIndex
+from app.models.setting import SystemSetting
+from app.models.quotation import Quotation
+from app.models.customer_asset import CustomerAsset
 
 __all__ = [
     "Base",
@@ -21,4 +24,7 @@ __all__ = [
     "Reminder",
     "ReminderSetting",
     "FileIndex",
+    "SystemSetting",
+    "Quotation",
+    "CustomerAsset",
 ]

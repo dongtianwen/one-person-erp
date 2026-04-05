@@ -6,6 +6,25 @@ from app.schemas.file_index import FileIndexCreate, FileIndexUpdate
 
 
 class CRUDFileIndex(CRUDBase[FileIndex, FileIndexCreate, FileIndexUpdate]):
+    async def create(self, db: AsyncSession, obj_in: FileIndexCreate) -> FileIndex:
+        db_obj = FileIndex(
+            file_group_id=obj_in.file_group_id or FileIndex.generate_group_id(),
+            file_name=obj_in.file_name,
+            file_type=obj_in.file_type,
+            version=obj_in.version,
+            is_current=obj_in.is_current,
+            issue_date=obj_in.issue_date,
+            expiry_date=obj_in.expiry_date,
+            storage_location=obj_in.storage_location,
+            entity_type=obj_in.entity_type,
+            entity_id=obj_in.entity_id,
+            issuing_authority=obj_in.issuing_authority,
+            note=obj_in.note,
+        )
+        db.add(db_obj)
+        await db.commit()
+        await db.refresh(db_obj)
+        return db_obj
 
     async def search(
         self,
@@ -25,7 +44,6 @@ class CRUDFileIndex(CRUDBase[FileIndex, FileIndexCreate, FileIndexUpdate]):
             query = query.where(FileIndex.file_type == file_type)
             count_query = count_query.where(FileIndex.file_type == file_type)
 
-        # Show current versions first, then by created_at desc
         query = query.order_by(FileIndex.is_current.desc(), FileIndex.created_at.desc())
 
         count_result = await db.execute(count_query)
@@ -37,16 +55,13 @@ class CRUDFileIndex(CRUDBase[FileIndex, FileIndexCreate, FileIndexUpdate]):
         return items, total
 
     async def create_version(self, db: AsyncSession, file_id: int, version_data: dict) -> FileIndex | None:
-        """Create a new version of an existing file. Demotes old current version."""
         original = await self.get(db, file_id)
         if not original:
             return None
 
-        # Demote old current versions in the same group
         result = await db.execute(
             select(FileIndex).where(
-                FileIndex.file_name == original.file_name,
-                FileIndex.file_type == original.file_type,
+                FileIndex.file_group_id == original.file_group_id,
                 FileIndex.is_current == True,
                 FileIndex.is_deleted == False,
             )
@@ -55,8 +70,8 @@ class CRUDFileIndex(CRUDBase[FileIndex, FileIndexCreate, FileIndexUpdate]):
             old.is_current = False
             db.add(old)
 
-        # Create new version
         new_file = FileIndex(
+            file_group_id=original.file_group_id,
             file_name=original.file_name,
             file_type=original.file_type,
             is_current=True,
@@ -70,14 +85,29 @@ class CRUDFileIndex(CRUDBase[FileIndex, FileIndexCreate, FileIndexUpdate]):
         await db.refresh(new_file)
         return new_file
 
-    async def get_versions(self, db: AsyncSession, file_name: str, file_type: str) -> list[FileIndex]:
-        """Get all versions of a file grouped by name+type."""
+    async def get_versions(self, db: AsyncSession, file_group_id: str) -> list[FileIndex]:
         result = await db.execute(
-            select(FileIndex).where(
-                FileIndex.file_name == file_name,
-                FileIndex.file_type == file_type,
+            select(FileIndex)
+            .where(
+                FileIndex.file_group_id == file_group_id,
                 FileIndex.is_deleted == False,
-            ).order_by(FileIndex.is_current.desc(), FileIndex.created_at.desc())
+            )
+            .order_by(FileIndex.is_current.desc(), FileIndex.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def get_by_group(
+        self,
+        db: AsyncSession,
+        file_group_id: str,
+    ) -> list[FileIndex]:
+        result = await db.execute(
+            select(FileIndex)
+            .where(
+                FileIndex.file_group_id == file_group_id,
+                FileIndex.is_deleted == False,
+            )
+            .order_by(FileIndex.is_current.desc(), FileIndex.created_at.desc())
         )
         return list(result.scalars().all())
 

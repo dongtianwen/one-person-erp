@@ -53,6 +53,11 @@ const routes = [
         path: 'file-indexes',
         name: 'FileIndexes',
         component: () => import('../views/FileIndexes.vue')
+      },
+      {
+        path: 'quotations',
+        name: 'Quotations',
+        component: () => import('../views/Quotations.vue')
       }
     ]
   }

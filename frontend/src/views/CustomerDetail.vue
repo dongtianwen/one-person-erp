@@ -123,6 +123,72 @@
             </el-table>
           </el-card>
         </el-tab-pane>
+        <el-tab-pane :label="'资产与托管记录 (' + assets.length + ')'" name="assets">
+          <el-card>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
+              <span style="font-size: 14px; font-weight: 600">资产与托管记录</span>
+              <el-button type="primary" size="small" @click="openCreateAsset()">
+                <el-icon><Plus /></el-icon> 新增资产
+              </el-button>
+            </div>
+            <div v-if="!assets.length" class="empty-hint">暂无资产记录</div>
+            <el-table v-else :data="assets" size="small" style="width: 100%">
+              <el-table-column prop="asset_type" label="类型" width="100">
+                <template #default="{ row }">{{ assetTypeLabels[row.asset_type] || row.asset_type }}</template>
+              </el-table-column>
+              <el-table-column prop="name" label="名称" min-width="160" />
+              <el-table-column prop="expiry_date" label="到期日期" width="120">
+                <template #default="{ row }">
+                  <span :style="{ color: row.expiry_date && new Date(row.expiry_date) < new Date() ? '#f43f5e' : row.expiry_date && (new Date(row.expiry_date) - new Date()) / 86400000 <= 30 ? '#f59e0b' : '' }">{{ row.expiry_date || '-' }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="supplier" label="供应商" width="140">
+                <template #default="{ row }">{{ row.supplier || '-' }}</template>
+              </el-table-column>
+              <el-table-column prop="annual_fee" label="年费" width="100">
+                <template #default="{ row }">{{ row.annual_fee ? '¥' + Number(row.annual_fee).toLocaleString() : '-' }}</template>
+              </el-table-column>
+              <el-table-column label="操作" width="120">
+                <template #default="{ row }">
+                  <el-button link type="primary" size="small" @click="openEditAsset(row)">编辑</el-button>
+                  <el-button link type="danger" size="small" @click="handleDeleteAsset(row)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-card>
+
+          <el-dialog v-model="assetFormVisible" :title="editingAssetId ? '编辑资产' : '新增资产'" width="520px" destroy-on-close>
+            <el-form :model="assetForm" label-width="80px">
+              <el-form-item label="资产类型" required>
+                <el-select v-model="assetForm.asset_type" placeholder="选择类型" style="width: 100%">
+                  <el-option v-for="(label, val) in assetTypeLabels" :key="val" :label="label" :value="val" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="名称" required>
+                <el-input v-model="assetForm.name" placeholder="资产名称" />
+              </el-form-item>
+              <el-form-item label="到期日期">
+                <el-date-picker v-model="assetForm.expiry_date" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" />
+              </el-form-item>
+              <el-form-item label="供应商">
+                <el-input v-model="assetForm.supplier" placeholder="供应商名称" />
+              </el-form-item>
+              <el-form-item label="年费">
+                <el-input-number v-model="assetForm.annual_fee" :min="0" :precision="2" style="width: 100%" />
+              </el-form-item>
+              <el-form-item label="账号信息">
+                <el-input v-model="assetForm.account_info" placeholder="相关账号" />
+              </el-form-item>
+              <el-form-item label="备注">
+                <el-input v-model="assetForm.notes" type="textarea" :rows="2" />
+              </el-form-item>
+            </el-form>
+            <template #footer>
+              <el-button @click="assetFormVisible = false">取消</el-button>
+              <el-button type="primary" @click="submitAssetForm">确定</el-button>
+            </template>
+          </el-dialog>
+        </el-tab-pane>
       </el-tabs>
     </template>
   </div>
@@ -130,10 +196,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+onMounted(() => loadData())
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { getCustomer } from '../api/customers'
+import { getCustomerAssets, createCustomerAsset, updateCustomerAsset, deleteCustomerAsset } from '../api/customerAssets'
+
+import { Plus } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -160,6 +230,7 @@ const loadData = async () => {
     customer.value = data.customer
     projects.value = data.projects || []
     contracts.value = data.contracts || []
+    loadAssets()
   } catch {
     ElMessage.error('客户不存在或加载失败')
     router.back()
@@ -168,7 +239,62 @@ const loadData = async () => {
   }
 }
 
-onMounted(loadData)
+const assets = ref([])
+
+const loadAssets = async () => {
+  try {
+    const { data } = await getCustomerAssets(route.params.id)
+    assets.value = data
+  } catch { /* ignore - first load might fail if no endpoint yet */
+  }
+}
+
+const assetTypeLabels = { server: '服务器', domain: '域名', ssl: 'SSL证书', miniprogram: '小程序', app: 'APP', other: '其他' }
+const assetFormVisible = ref(false)
+const assetSubmitting = ref(false)
+const editingAssetId = ref(null)
+const assetForm = ref({ asset_type: '', name: '', expiry_date: '', supplier: '', annual_fee: null, account_info: '', notes: '' })
+
+const openCreateAsset = () => {
+  editingAssetId.value = null
+  assetForm.value = { asset_type: '', name: '', expiry_date: '', supplier: '', annual_fee: null, account_info: '', notes: '' }
+  assetFormVisible.value = true
+}
+const openEditAsset = (row) => {
+  editingAssetId.value = row.id
+  assetForm.value = { asset_type: row.asset_type, name: row.name, expiry_date: row.expiry_date || '', supplier: row.supplier || '', annual_fee: row.annual_fee || null, account_info: row.account_info || '', notes: row.notes || '' }
+  assetFormVisible.value = true
+}
+const submitAssetForm = async () => {
+  try {
+    const payload = { ...assetForm.value }
+    // Clean empty strings to null for optional numeric/date fields
+    if (!payload.annual_fee) payload.annual_fee = null
+    if (!payload.expiry_date) payload.expiry_date = null
+    if (editingAssetId.value) {
+      await updateCustomerAsset(route.params.id, editingAssetId.value, payload)
+      ElMessage.success('资产已更新')
+    } else {
+      await createCustomerAsset(route.params.id, payload)
+      ElMessage.success('资产已添加')
+    }
+    assetFormVisible.value = false
+    loadAssets()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.detail || '操作失败')
+  }
+}
+const handleDeleteAsset = async (row) => {
+  try {
+    await ElMessageBox.confirm('确认删除此资产记录？删除后关联提醒也会同步清除。', '删除确认', { type: 'warning' })
+    await deleteCustomerAsset(route.params.id, row.id)
+    ElMessage.success('资产已删除')
+    loadAssets()
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error(e.response?.data?.detail || '删除失败')
+  }
+}
+
 </script>
 
 <style scoped>

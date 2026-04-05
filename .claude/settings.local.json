@@ -29,7 +29,24 @@
       "Bash(pkill -9 -f \"python.*main\")",
       "mcp__filesystem__read_text_file",
       "mcp__filesystem__edit_file",
-      "mcp__sequential-thinking__sequentialthinking"
+      "mcp__sequential-thinking__sequentialthinking",
+      "mcp__web-search-prime__web_search_prime",
+      "mcp__web-reader__webReader",
+      "Bash(openspec new:*)",
+      "Bash(openspec status:*)",
+      "Bash(openspec --version)",
+      "Bash(openspec --help)",
+      "Bash(openspec instructions:*)",
+      "mcp__filesystem__create_directory",
+      "Bash(alembic revision:*)",
+      "Bash(alembic upgrade:*)",
+      "Bash(openspec list:*)",
+      "mcp__chrome-devtools__new_page",
+      "Bash(where python3:*)",
+      "Bash(where python:*)",
+      "Bash(tasklist //FI \"IM python.exe\")",
+      "Bash(tasklist //FI \"python.exe\")",
+      "mcp__chrome-devtools__get_console_message"
     ]
   }
 }

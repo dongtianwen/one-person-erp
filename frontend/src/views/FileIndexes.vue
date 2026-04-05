@@ -31,7 +31,51 @@
         <el-button type="primary" @click="loadData">筛选</el-button>
       </div>
 
-      <el-table :data="records" style="width: 100%" v-loading="loading">
+      <el-table :data="records" style="width: 100%" v-loading="loading" row-key="id">
+        <el-table-column type="expand" width="40">
+          <template #default="{ row }">
+            <div class="expand-content" v-loading="expandLoading[row.id]">
+              <div class="expand-title">版本历史（{{ expandVersions[row.id]?.length || 0 }} 个版本）</div>
+              <el-table :data="expandVersions[row.id] || []" size="small" border>
+                <el-table-column prop="version" label="版本" width="80">
+                  <template #default="{ row: v }">
+                    <span v-if="v.version" class="mono version-badge">{{ v.version }}</span>
+                    <span v-else>-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="is_current" label="状态" width="70">
+                  <template #default="{ row: v }">
+                    <el-tag v-if="v.is_current" type="success" size="small" round>当前</el-tag>
+                    <el-tag v-else type="info" size="small" round>历史</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="issue_date" label="签发日期" width="100">
+                  <template #default="{ row: v }">
+                    <span class="mono">{{ v.issue_date || '-' }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="expiry_date" label="到期日期" width="100">
+                  <template #default="{ row: v }">
+                    <el-tag v-if="v.expiry_date" :type="expiryTagType(v.expiry_date)" size="small" round>
+                      {{ v.expiry_date }}
+                    </el-tag>
+                    <span v-else>-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="storage_location" label="存放位置" min-width="120" show-overflow-tooltip>
+                  <template #default="{ row: v }">
+                    {{ v.storage_location || '-' }}
+                  </template>
+                </el-table-column>
+                <el-table-column prop="note" label="备注" min-width="120" show-overflow-tooltip>
+                  <template #default="{ row: v }">
+                    {{ v.note || '-' }}
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="file_name" label="文件名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="file_type" label="文件类型" width="110">
           <template #default="{ row }">
@@ -269,6 +313,9 @@ const total = ref(0)
 const keyword = ref('')
 const typeFilter = ref('')
 
+const expandLoading = ref({})
+const expandVersions = ref({})
+
 const showDialog = ref(false)
 const editingId = ref(null)
 const showVersionDialog = ref(false)
@@ -385,13 +432,19 @@ const handleCreateVersion = async () => {
 }
 
 const loadVersions = async (row) => {
-  showVersionsList.value = true
-  versionsLoading.value = true
+  if (!row.file_group_id) return
+  expandLoading.value[row.id] = true
   try {
-    const { data } = await getFileVersions(row.id)
-    versions.value = data
+    const { data } = await getFileVersions(row.file_group_id)
+    expandVersions.value[row.id] = data
   } finally {
-    versionsLoading.value = false
+    expandLoading.value[row.id] = false
+  }
+}
+
+const handleExpand = (row) => {
+  if (!expandVersions.value[row.id]) {
+    loadVersions(row)
   }
 }
 

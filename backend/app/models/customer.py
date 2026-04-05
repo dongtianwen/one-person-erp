@@ -18,3 +18,5 @@ class Customer(Base, TimestampMixin):
 
     projects = relationship("Project", back_populates="customer", cascade="all, delete-orphan")
     contracts = relationship("Contract", back_populates="customer", cascade="all, delete-orphan")
+    quotations = relationship("Quotation", back_populates="customer", cascade="all, delete-orphan")
+    assets = relationship("CustomerAsset", back_populates="customer", cascade="all, delete-orphan")

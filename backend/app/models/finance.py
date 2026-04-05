@@ -20,6 +20,7 @@ class FinanceRecord(Base, TimestampMixin):
     business_note = Column(Text, nullable=True)
     related_record_id = Column(Integer, ForeignKey("finance_records.id"), nullable=True)
     related_note = Column(String(200), nullable=True)
+    settlement_status = Column(String(20), nullable=True)
 
     contract = relationship("Contract", back_populates="finance_records")
     related_record = relationship("FinanceRecord", foreign_keys=[related_record_id], remote_side="FinanceRecord.id")

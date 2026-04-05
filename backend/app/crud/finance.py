@@ -48,7 +48,11 @@ class CRUDFinanceRecord(CRUDBase[FinanceRecord, FinanceRecordCreate, FinanceReco
 
         result = await db.execute(
             select(FinanceRecord.category, func.sum(FinanceRecord.amount))
-            .where(FinanceRecord.status.in_(["paid", "confirmed"]), FinanceRecord.date >= start_date, FinanceRecord.date < end_date)
+            .where(
+                FinanceRecord.status.in_(["paid", "confirmed"]),
+                FinanceRecord.date >= start_date,
+                FinanceRecord.date < end_date,
+            )
             .group_by(FinanceRecord.category)
         )
         return {row[0]: row[1] for row in result.all() if row[0]}
@@ -131,6 +135,29 @@ class CRUDFinanceRecord(CRUDBase[FinanceRecord, FinanceRecordCreate, FinanceReco
             "unclosed_advances": unclosed_advances,
             "unclosed_loans": unclosed_loans,
         }
+
+    async def get_unsettled_summary(self, db: AsyncSession) -> dict:
+        unsettled_sources = ["personal_advance", "loan"]
+
+        count_result = await db.execute(
+            select(func.count(FinanceRecord.id)).where(
+                FinanceRecord.funding_source.in_(unsettled_sources),
+                FinanceRecord.settlement_status.in_(["open", "partial"]),
+                FinanceRecord.is_deleted == False,
+            )
+        )
+        total_count = count_result.scalar() or 0
+
+        amount_result = await db.execute(
+            select(func.sum(FinanceRecord.amount)).where(
+                FinanceRecord.funding_source.in_(unsettled_sources),
+                FinanceRecord.settlement_status.in_(["open", "partial"]),
+                FinanceRecord.is_deleted == False,
+            )
+        )
+        total_amount = amount_result.scalar() or 0
+
+        return {"count": total_count, "total_amount": total_amount}
 
 
 finance_record = CRUDFinanceRecord(FinanceRecord)
