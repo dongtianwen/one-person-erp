@@ -19,6 +19,7 @@ from app.api.endpoints import (
     file_indexes,
     quotations,
     customer_assets,
+    cashflow,
 )
 from app.database import async_session
 from app.api.endpoints.auth import create_default_admin
@@ -112,6 +113,7 @@ app.include_router(reminders.router, prefix="/api/v1/reminders", tags=["提醒�
 app.include_router(file_indexes.router, prefix="/api/v1/file-indexes", tags=["文件管理"])
 app.include_router(quotations.router, prefix="/api/v1/quotations", tags=["报价单管理"])
 app.include_router(customer_assets.router, prefix="/api/v1/customers/{customer_id}/assets", tags=["客户资产"])
+app.include_router(cashflow.router, prefix="/api/v1/cashflow", tags=["现金流预测"])
 
 
 @app.get("/health")

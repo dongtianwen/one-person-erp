@@ -192,12 +192,50 @@ a:hover { color: var(--brand-cyan-dark); }
   transition: background var(--duration-fast) var(--ease-out);
 }
 
-/* Tag refinement */
+/* Fix Element Plus fixed-right column overlay bug */
+.el-table .el-table-fixed-column--right {
+  background: var(--surface-card) !important;
+}
+.el-table__fixed-right::before, .el-table__fixed::before {
+  display: none !important;
+}
+.el-table__fixed-right-patch {
+  background: var(--surface-card) !important;
+}
+
+/* Tag refinement (Legacy) */
 .el-tag {
   border-radius: 20px !important;
   font-weight: 500;
   font-size: 12px;
   letter-spacing: 0.02em;
+}
+
+/* Modern Status Dots */
+.status-dot-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: rgba(248, 250, 252, 0.5);
+  border: 1px solid var(--border-light, #e2e8f0);
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.status-dot.primary { background-color: var(--el-color-primary); box-shadow: 0 0 4px var(--el-color-primary); }
+.status-dot.success { background-color: var(--el-color-success); box-shadow: 0 0 4px var(--el-color-success); }
+.status-dot.warning { background-color: var(--el-color-warning); box-shadow: 0 0 4px var(--el-color-warning); }
+.status-dot.danger { background-color: var(--el-color-danger); box-shadow: 0 0 4px var(--el-color-danger); }
+.status-dot.info { background-color: var(--el-color-info); box-shadow: 0 0 4px var(--el-color-info); }
+
+.status-dot-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 /* Dialog refinement */
@@ -259,6 +297,24 @@ a:hover { color: var(--brand-cyan-dark); }
 .mono {
   font-family: var(--font-mono);
   font-feature-settings: 'tnum';
+}
+
+/* --- Global Form Layout --- */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 16px;
+}
+
+/* --- Global Action Buttons Column --- */
+.action-btns {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.action-btns .el-button {
+  margin-left: 0 !important;
 }
 
 /* --- Animations --- */

@@ -13,6 +13,8 @@ class ContractBase(BaseModel):
     end_date: Optional[date] = None
     status: str = "draft"
     terms: str = ""
+    expected_payment_date: Optional[date] = None
+    payment_stage_note: Optional[str] = None
 
 
 class ContractCreate(ContractBase):
@@ -29,6 +31,8 @@ class ContractUpdate(BaseModel):
     status: Optional[str] = None
     terms: Optional[str] = None
     termination_reason: Optional[str] = None
+    expected_payment_date: Optional[date] = None
+    payment_stage_note: Optional[str] = None
 
 
 class ContractResponse(ContractBase):

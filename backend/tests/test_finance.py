@@ -83,9 +83,11 @@ async def test_invoice_no_unique(client):
     h = await _auth(client)
     await client.post("/api/v1/finances", json={
         "type": "income", "amount": 1000, "date": "2026-04-01", "invoice_no": "INV-001",
+        "invoice_direction": "output", "invoice_type": "general", "tax_rate": 0.06,
     }, headers=h)
     r = await client.post("/api/v1/finances", json={
         "type": "income", "amount": 2000, "date": "2026-04-02", "invoice_no": "INV-001",
+        "invoice_direction": "output", "invoice_type": "general", "tax_rate": 0.06,
     }, headers=h)
     assert r.status_code == 400
 
@@ -95,9 +97,11 @@ async def test_invoice_no_update_conflict(client):
     h = await _auth(client)
     r1 = await client.post("/api/v1/finances", json={
         "type": "income", "amount": 1000, "date": "2026-04-01", "invoice_no": "INV-002",
+        "invoice_direction": "output", "invoice_type": "general", "tax_rate": 0.06,
     }, headers=h)
     r2 = await client.post("/api/v1/finances", json={
         "type": "income", "amount": 2000, "date": "2026-04-02", "invoice_no": "INV-003",
+        "invoice_direction": "output", "invoice_type": "general", "tax_rate": 0.06,
     }, headers=h)
     id2 = r2.json()["id"]
     r3 = await client.put(f"/api/v1/finances/{id2}", json={"invoice_no": "INV-002"}, headers=h)
@@ -109,6 +113,7 @@ async def test_invoice_no_same_record_update_ok(client):
     h = await _auth(client)
     r = await client.post("/api/v1/finances", json={
         "type": "income", "amount": 1000, "date": "2026-04-01", "invoice_no": "INV-010",
+        "invoice_direction": "output", "invoice_type": "general", "tax_rate": 0.06,
     }, headers=h)
     rid = r.json()["id"]
     r2 = await client.put(f"/api/v1/finances/{rid}", json={"invoice_no": "INV-010"}, headers=h)

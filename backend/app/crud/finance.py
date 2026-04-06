@@ -6,6 +6,25 @@ from app.schemas.finance import FinanceRecordCreate, FinanceRecordUpdate
 
 
 class CRUDFinanceRecord(CRUDBase[FinanceRecord, FinanceRecordCreate, FinanceRecordUpdate]):
+
+    async def create_with_data(self, db: AsyncSession, data: dict) -> FinanceRecord:
+        """直接用 dict 创建记录（v1.3 校验后的干净数据）。"""
+        db_obj = self.model(**data)
+        db.add(db_obj)
+        await db.commit()
+        await db.refresh(db_obj)
+        return db_obj
+
+    async def update_with_data(self, db: AsyncSession, db_obj: FinanceRecord, data: dict) -> FinanceRecord:
+        """直接用 dict 更新记录（v1.3 校验后的干净数据）。"""
+        for field, value in data.items():
+            if hasattr(db_obj, field):
+                setattr(db_obj, field, value)
+        db.add(db_obj)
+        await db.commit()
+        await db.refresh(db_obj)
+        return db_obj
+
     async def get_monthly_summary(self, db: AsyncSession, year: int, month: int) -> dict:
         from datetime import date
 

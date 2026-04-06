@@ -2,8 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <div class="header-title-group">
-        <h2>项目管理</h2>
-        <span class="header-count mono">{{ projects.length }} 个项目</span>
+        <span class="header-count mono">总计：{{ projects.length }} 个项目</span>
       </div>
       <el-button type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon>
@@ -13,32 +12,40 @@
 
     <el-card>
       <div class="filter-bar">
+        <el-input
+          v-model="searchQuery"
+          placeholder="搜索项目名称或描述..."
+          style="width: 250px"
+          clearable
+          :prefix-icon="Search"
+          @clear="loadData"
+          @keyup.enter="loadData"
+        />
         <el-select v-model="statusFilter" placeholder="按状态筛选" clearable style="width: 160px" @change="loadData">
           <el-option v-for="(label, val) in statusLabels" :key="val" :label="label" :value="val" />
         </el-select>
-        <el-button type="primary" @click="loadData">筛选</el-button>
+        <el-button type="primary" @click="loadData">查询</el-button>
       </div>
 
       <el-table :data="projects" style="width: 100%" v-loading="loading">
+        <el-table-column type="selection" width="40" />
         <el-table-column prop="name" label="项目名称" min-width="160">
           <template #default="{ row }">
-            <div class="cell-name">{{ row.name }}</div>
-            <div v-if="row.description" class="cell-sub">{{ row.description }}</div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div class="status-dot-wrapper">
+                <div class="status-dot" :class="statusTypes[row.status] || 'info'"></div>
+                <span class="status-dot-text">{{ statusLabels[row.status] || row.status }}</span>
+              </div>
+              <span class="cell-name">{{ row.name }}</span>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="statusTypes[row.status] || 'info'" size="small" round>
-              {{ statusLabels[row.status] || row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="budget" label="预算" width="120">
+        <el-table-column prop="budget" label="预算" width="110" align="right">
           <template #default="{ row }">
             <span class="mono">{{ row.budget ? '¥' + row.budget.toLocaleString() : '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="进度" width="180">
+        <el-table-column label="进度" width="150">
           <template #default="{ row }">
             <div class="progress-cell">
               <el-progress
@@ -51,7 +58,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="时间" width="180">
+        <el-table-column label="时间" width="200">
           <template #default="{ row }">
             <div class="date-range mono">
               <span>{{ row.start_date || '-' }}</span>
@@ -60,19 +67,28 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <div class="action-btns">
               <el-button link type="primary" size="small" @click="openDetail(row)">管理</el-button>
               <el-button link type="primary" size="small" @click="editProject(row)">编辑</el-button>
-              <el-button link type="danger" size="small" @click="handleDelete(row.id)">删除</el-button>
+              <el-dropdown trigger="click" placement="bottom-end">
+                <el-button link type="info" size="small">
+                  <el-icon><MoreFilled /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="handleDelete(row.id)" style="color: var(--el-color-danger)">删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </div>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <el-dialog v-model="showDialog" :title="editingId ? '编辑项目' : '新建项目'" width="520px" destroy-on-close>
+    <el-dialog v-model="showDialog" :title="editingId ? '编辑项目' : '新建项目'" width="600px" destroy-on-close>
       <el-form :model="form" label-position="top">
         <el-form-item label="项目名称" required>
           <el-input v-model="form.name" placeholder="请输入项目名称" />
@@ -245,7 +261,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Search, MoreFilled } from '@element-plus/icons-vue'
 import { getProjects, createProject, updateProject, deleteProject, getTasks, createTask, updateTask, getMilestones, createMilestone, updateMilestone } from '../api/projects'
 import { getCustomers } from '../api/customers'
 
@@ -253,6 +269,7 @@ const projects = ref([])
 const customers = ref([])
 const loading = ref(false)
 const statusFilter = ref('')
+const searchQuery = ref('')
 const showDialog = ref(false)
 const editingId = ref(null)
 const defaultForm = { name: '', customer_id: null, description: '', status: 'requirements', budget: null, start_date: '', end_date: '' }
@@ -295,6 +312,7 @@ const loadData = async () => {
   try {
     const params = {}
     if (statusFilter.value) params.status = statusFilter.value
+    if (searchQuery.value) params.search = searchQuery.value
     const { data } = await getProjects(params)
     projects.value = data
   } finally {
@@ -700,5 +718,32 @@ onMounted(() => { loadData(); loadCustomers() })
 .milestone-done {
   font-size: 12px;
   color: var(--el-color-success, #67c23a);
+}
+
+/* Modern Status Dots - Scoped */
+.status-dot-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: var(--bg-soft, #f8fafc);
+  border: 1px solid var(--border-light, #e2e8f0);
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.status-dot.primary { background-color: var(--el-color-primary); box-shadow: 0 0 4px var(--el-color-primary); }
+.status-dot.success { background-color: var(--el-color-success); box-shadow: 0 0 4px var(--el-color-success); }
+.status-dot.warning { background-color: var(--el-color-warning); box-shadow: 0 0 4px var(--el-color-warning); }
+.status-dot.danger { background-color: var(--el-color-danger); box-shadow: 0 0 4px var(--el-color-danger); }
+.status-dot.info { background-color: var(--el-color-info); box-shadow: 0 0 4px var(--el-color-info); }
+
+.status-dot-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 </style>

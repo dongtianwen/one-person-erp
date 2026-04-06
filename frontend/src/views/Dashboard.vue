@@ -6,8 +6,9 @@
         v-for="(card, idx) in metricCards"
         :key="card.key"
         class="metric-card anim-fade-in-up"
-        :class="`stagger-${idx + 1}`"
-        :style="{ '--card-color': card.color, '--card-glow': card.glow }"
+        :class="[`stagger-${idx + 1}`, { clickable: true }]"
+        :style="{ '--card-color': card.color, '--card-glow': card.glow, cursor: 'pointer' }"
+        @click="goToCard(card.key)"
       >
         <div class="metric-icon">
           <el-icon :size="22"><component :is="card.icon" /></el-icon>
@@ -58,6 +59,74 @@
         </div>
       </div>
     </el-card>
+
+    <!-- v1.3 Cashflow Forecast + Tax Summary -->
+    <el-row :gutter="20" style="margin-top: 20px">
+      <el-col :span="16">
+        <el-card class="anim-fade-in-up">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">现金流预测</span>
+              <span class="card-subtitle">未来90天收支趋势</span>
+            </div>
+          </template>
+          <div v-if="cashflowError" class="empty-state">
+            <p style="color: var(--brand-rose)">{{ cashflowError }}</p>
+          </div>
+          <div v-else-if="!cashflowData.forecast.length" class="empty-state">
+            <el-icon :size="32" color="var(--text-tertiary)"><TrendCharts /></el-icon>
+            <p>暂无数据</p>
+          </div>
+          <div v-else class="cashflow-chart">
+            <div class="cashflow-bars">
+              <div v-for="(week, idx) in cashflowData.forecast" :key="idx" class="cashflow-col">
+                <div class="cashflow-col-bars">
+                  <div class="cashflow-bar income-bar" :style="{ height: cfBarHeight(week.income) + '%' }" :title="'收入: ¥' + formatNumber(week.income)" />
+                  <div class="cashflow-bar expense-bar" :style="{ height: cfBarHeight(week.expense) + '%' }" :title="'支出: ¥' + formatNumber(week.expense)" />
+                  <div class="cashflow-bar net-bar" :style="{ height: cfBarHeight(week.net) + '%', background: week.net >= 0 ? '#06b6d4' : '#f43f5e' }" :title="'净额: ¥' + formatNumber(week.net)" />
+                </div>
+                <div class="cashflow-week">W{{ idx + 1 }}</div>
+              </div>
+            </div>
+            <div class="trend-legend">
+              <span class="legend-item"><i class="legend-dot" style="background:#10b981" />收入</span>
+              <span class="legend-item"><i class="legend-dot" style="background:#f43f5e" />支出</span>
+              <span class="legend-item"><i class="legend-dot" style="background:#06b6d4" />净额</span>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+
+      <el-col :span="8">
+        <el-card class="anim-fade-in-up" v-loading="taxLoading">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">季度增值税汇总</span>
+              <div class="tax-quarter-select">
+                <el-select v-model="taxQuarter" size="small" style="width: 140px" @change="loadTaxSummary">
+                  <el-option v-for="q in [1,2,3,4]" :key="q" :label="`${taxYear}年 Q${q}`" :value="q" />
+                </el-select>
+              </div>
+            </div>
+          </template>
+          <div class="tax-summary-grid">
+            <div class="tax-item">
+              <div class="tax-label">销项税额</div>
+              <div class="tax-value mono positive">¥{{ Number(taxSummary.output_tax_total || 0).toFixed(2) }}</div>
+            </div>
+            <div class="tax-item">
+              <div class="tax-label">进项税额</div>
+              <div class="tax-value mono" style="color: #f43f5e">¥{{ Number(taxSummary.input_tax_total || 0).toFixed(2) }}</div>
+            </div>
+            <div class="tax-item highlight">
+              <div class="tax-label">应纳税额</div>
+              <div class="tax-value mono" :style="{ color: (taxSummary.tax_payable || 0) >= 0 ? '#06b6d4' : '#f43f5e' }">¥{{ Number(taxSummary.tax_payable || 0).toFixed(2) }}</div>
+            </div>
+          </div>
+          <div class="tax-disclaimer">* 数据仅供参考，实际申报以税务机关为准</div>
+        </el-card>
+      </el-col>
+    </el-row>
 
     <!-- Charts Row -->
     <el-row :gutter="20" class="charts-row">
@@ -292,12 +361,16 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   TrendCharts, Wallet, Coin, DataBoard, Tickets,
   Calendar, Document, Clock, Plus, Download, Bell
 } from '@element-plus/icons-vue'
-import { getDashboard, getCustomerFunnel, getProjectStatus, getTodos, getRevenueTrend, backupDatabase, listBackups, verifyBackup } from '../api/dashboard'
+import { getDashboard, getCustomerFunnel, getProjectStatus, getTodos, getRevenueTrend, backupDatabase, listBackups, verifyBackup, getCashflowForecast, getTaxSummary } from '../api/dashboard'
+
+const functor = ref(null)
+const router = useRouter()
 
 const metrics = ref({ monthly_income: 0, monthly_expense: 0, monthly_profit: 0, active_projects: 0, customer_conversion_rate: 0, quotation_conversion_rate: 0 })
 const funnel = ref({})
@@ -307,6 +380,9 @@ const revenueTrend = ref([])
 const lastBackupTime = ref('')
 const backups = ref([])
 const verifyingId = ref(null)
+const cashflowData = ref({ forecast: [], summary: {} })
+const taxSummary = ref({ output_tax_total: 0, input_tax_total: 0, tax_payable: 0 })
+const taxLoading = ref(false)
 
 const stageLabels = { potential: '潜在客户', follow_up: '跟进中', deal: '成交', lost: '流失' }
 const stageColors = { potential: '#94a3b8', follow_up: '#06b6d4', deal: '#10b981', lost: '#f43f5e' }
@@ -389,6 +465,50 @@ const loadData = async () => {
   } catch { /* silently degrade */ }
 }
 
+// v1.3 现金流预测
+const cashflowError = ref('')
+const cfMaxValue = computed(() => {
+  if (!cashflowData.value.forecast.length) return 1
+  return Math.max(...cashflowData.value.forecast.flatMap(w => [Math.abs(w.income || 0), Math.abs(w.expense || 0), Math.abs(w.net || 0)]), 1)
+})
+const cfBarHeight = (value) => {
+  if (!value) return 0
+  return Math.max(Math.round((Math.abs(value) / cfMaxValue.value) * 100), 2)
+}
+const loadCashflowForecast = async () => {
+  try {
+    const { data } = await getCashflowForecast()
+    // API 返回 predicted_income/predicted_expense/predicted_net，前端使用 income/expense/net
+    const forecast = (data.forecast || []).map(w => ({
+      ...w,
+      income: w.predicted_income || w.income || 0,
+      expense: w.predicted_expense || w.expense || 0,
+      net: w.predicted_net || w.net || 0,
+    }))
+    cashflowData.value = { forecast, summary: data.summary || {} }
+    cashflowError.value = ''
+  } catch (e) {
+    cashflowError.value = '加载现金流预测失败'
+    cashflowData.value = { forecast: [], summary: {} }
+  }
+}
+
+// v1.3 季度增值税
+const now = new Date()
+const taxYear = ref(now.getFullYear())
+const taxQuarter = ref(Math.ceil((now.getMonth() + 1) / 3))
+const loadTaxSummary = async () => {
+  taxLoading.value = true
+  try {
+    const { data } = await getTaxSummary(taxYear.value, taxQuarter.value)
+    taxSummary.value = data
+  } catch {
+    taxSummary.value = { output_tax_total: 0, input_tax_total: 0, tax_payable: 0 }
+  } finally {
+    taxLoading.value = false
+  }
+}
+
 const handleBackup = async () => {
   try {
     const { data } = await backupDatabase('./backups')
@@ -405,6 +525,14 @@ const loadBackups = async () => {
     const { data } = await listBackups()
     backups.value = data
   } catch { /* ignore */ }
+}
+
+const goToCard = (key) => {
+  if (['projects', 'quotation_rate'].includes(key)) {
+    router.push('/projects')
+  } else {
+    router.push('/finances')
+  }
 }
 
 const handleVerify = async (filename) => {
@@ -430,7 +558,7 @@ const formatFileSize = (bytes) => {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-onMounted(() => { loadData(); loadBackups() })
+onMounted(() => { loadData(); loadBackups(); loadCashflowForecast(); loadTaxSummary() })
 </script>
 
 <style scoped>
@@ -892,6 +1020,96 @@ onMounted(() => { loadData(); loadBackups() })
 .actions-buttons {
   display: flex;
   gap: 8px;
+}
+
+/* ---- Cashflow Chart ---- */
+.cashflow-chart { padding: 4px 0; }
+
+.cashflow-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 120px;
+}
+
+.cashflow-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.cashflow-col-bars {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  width: 100%;
+}
+
+.cashflow-bar {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  transition: height 0.6s var(--ease-out);
+}
+
+.cashflow-bar.income-bar { background: #10b981; }
+.cashflow-bar.expense-bar { background: #f43f5e; opacity: 0.7; }
+.cashflow-bar.net-bar { opacity: 0.8; }
+
+.cashflow-week {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 6px;
+  white-space: nowrap;
+}
+
+/* ---- Tax Summary ---- */
+.tax-quarter-select {
+  margin-left: auto;
+}
+
+.tax-summary-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.tax-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--el-fill-color-lighter);
+  border-radius: 8px;
+}
+
+.tax-item.highlight {
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--border-default);
+}
+
+.tax-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.tax-value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.tax-value.positive { color: var(--brand-emerald); }
+
+.tax-disclaimer {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-align: center;
 }
 
 /* ---- Responsive ---- */

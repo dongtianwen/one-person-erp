@@ -18,6 +18,10 @@ class Contract(Base, TimestampMixin):
     terms = Column(Text, default="")
     termination_reason = Column(Text, nullable=True)
 
+    # v1.3 现金流预测字段
+    expected_payment_date = Column(Date, nullable=True)
+    payment_stage_note = Column(String(200), nullable=True)
+
     customer = relationship("Customer", back_populates="contracts")
     project = relationship("Project", back_populates="contracts")
     finance_records = relationship("FinanceRecord", back_populates="contract", cascade="all, delete-orphan")

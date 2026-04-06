@@ -2,8 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <div class="header-title-group">
-        <h2>文件管理</h2>
-        <span class="header-count mono">{{ total }} 条记录</span>
+        <span class="header-count mono">总计：{{ total }} 条记录</span>
       </div>
       <el-button type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon>
@@ -18,9 +17,9 @@
         </el-select>
         <el-input
           v-model="keyword"
-          placeholder="搜索文件名称"
+          placeholder="搜索文件名称..."
           clearable
-          style="width: 200px"
+          style="width: 250px"
           @clear="loadData"
           @keyup.enter="loadData"
         >
@@ -28,10 +27,11 @@
             <el-icon><Search /></el-icon>
           </template>
         </el-input>
-        <el-button type="primary" @click="loadData">筛选</el-button>
+        <el-button type="primary" @click="loadData">查询</el-button>
       </div>
 
-      <el-table :data="records" style="width: 100%" v-loading="loading" row-key="id">
+      <el-table :data="records" style="width: 100%" v-loading="loading" row-key="id" @expand-change="handleExpand">
+        <el-table-column type="selection" width="50" />
         <el-table-column type="expand" width="40">
           <template #default="{ row }">
             <div class="expand-content" v-loading="expandLoading[row.id]">
@@ -40,13 +40,15 @@
                 <el-table-column prop="version" label="版本" width="80">
                   <template #default="{ row: v }">
                     <span v-if="v.version" class="mono version-badge">{{ v.version }}</span>
-                    <span v-else>-</span>
+                    <span v-else class="text-tertiary">-</span>
                   </template>
                 </el-table-column>
                 <el-table-column prop="is_current" label="状态" width="70">
                   <template #default="{ row: v }">
-                    <el-tag v-if="v.is_current" type="success" size="small" round>当前</el-tag>
-                    <el-tag v-else type="info" size="small" round>历史</el-tag>
+                    <div class="status-dot-wrapper" style="background: transparent; border: none; padding: 0;">
+                      <div class="status-dot" :class="v.is_current ? 'success' : 'info'"></div>
+                      <span class="status-dot-text">{{ v.is_current ? '当前' : '历史' }}</span>
+                    </div>
                   </template>
                 </el-table-column>
                 <el-table-column prop="issue_date" label="签发日期" width="100">
@@ -76,7 +78,17 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="file_name" label="文件名称" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="file_name" label="文件名称" min-width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div class="status-dot-wrapper">
+                <div class="status-dot" :class="row.is_current ? 'success' : 'info'"></div>
+                <span class="status-dot-text">{{ row.is_current ? '当前' : '历史' }}</span>
+              </div>
+              <span style="font-weight: 500;">{{ row.file_name }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="file_type" label="文件类型" width="110">
           <template #default="{ row }">
             {{ typeLabels[row.file_type] || row.file_type }}
@@ -88,12 +100,7 @@
             <span v-else class="text-tertiary">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="is_current" label="有效版本" width="90">
-          <template #default="{ row }">
-            <el-tag v-if="row.is_current" type="success" size="small" round>当前</el-tag>
-            <el-tag v-else type="info" size="small" round>历史</el-tag>
-          </template>
-        </el-table-column>
+
         <el-table-column prop="issue_date" label="签发日期" width="110">
           <template #default="{ row }">
             <span class="mono">{{ row.issue_date || '-' }}</span>
@@ -125,11 +132,22 @@
             <span v-else class="text-tertiary">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="130" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openVersion(row)">新版本</el-button>
-            <el-button link type="primary" size="small" @click="editRecord(row)">编辑</el-button>
-            <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+            <div class="action-btns">
+              <el-button link type="primary" size="small" @click="openVersion(row)">升版</el-button>
+              <el-button link type="primary" size="small" @click="editRecord(row)">编辑</el-button>
+              <el-dropdown trigger="click" placement="bottom-end">
+                <el-button link type="info" size="small" style="padding: 0 4px">
+                  <el-icon><MoreFilled /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="handleDelete(row)" style="color: var(--el-color-danger)">删除此版本</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -146,7 +164,7 @@
     </el-card>
 
     <!-- Create/Edit Dialog -->
-    <el-dialog v-model="showDialog" :title="editingId ? '编辑文件' : '新建文件'" width="560px" destroy-on-close>
+    <el-dialog v-model="showDialog" :title="editingId ? '编辑文件' : '新建文件'" width="600px" destroy-on-close>
       <el-form :model="form" label-position="top">
         <div class="form-grid">
           <el-form-item label="文件名称" required>
@@ -268,8 +286,9 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search } from '@element-plus/icons-vue'
+import { Plus, Search, MoreFilled } from '@element-plus/icons-vue'
 import {
   getFileIndexes,
   createFileIndex,
@@ -346,11 +365,11 @@ const defaultVersionForm = {
 const versionForm = ref({ ...defaultVersionForm })
 
 const expiryTagType = (d) => {
-  if (!d) return ''
+  if (!d) return 'info'
   const diff = (new Date(d) - new Date()) / 86400000
   if (diff < 0) return 'danger'
   if (diff <= 30) return 'warning'
-  return ''
+  return 'info'
 }
 
 const loadData = async () => {

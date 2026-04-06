@@ -2,8 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <div class="header-title-group">
-        <h2>提醒管理</h2>
-        <span class="header-count mono">{{ total }} 条提醒</span>
+        <span class="header-count mono">总计：{{ total }} 条记录</span>
       </div>
       <div class="header-actions">
         <el-button @click="openSettings">
@@ -19,24 +18,38 @@
 
     <el-card>
       <div class="filter-bar">
+        <el-input
+          v-model="searchQuery"
+          placeholder="搜索提醒标题..."
+          style="width: 250px"
+          clearable
+          :prefix-icon="Search"
+          @clear="loadData"
+          @keyup.enter="loadData"
+        />
         <el-select v-model="typeFilter" placeholder="类型" clearable style="width: 130px" @change="loadData">
           <el-option v-for="(label, val) in typeLabels" :key="val" :label="label" :value="val" />
         </el-select>
         <el-select v-model="statusFilter" placeholder="状态" clearable style="width: 120px" @change="loadData">
           <el-option v-for="(label, val) in statusLabels" :key="val" :label="label" :value="val" />
         </el-select>
-        <el-button type="primary" @click="loadData">筛选</el-button>
+        <el-button type="primary" @click="loadData">查询</el-button>
       </div>
 
       <el-table :data="items" style="width: 100%" v-loading="loading" :row-class-name="rowClassName">
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column type="selection" width="50" />
+
+        <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip>
           <template #default="{ row }">
-            <el-tag :type="statusTypes[row.status] || 'info'" size="small" round>
-              {{ statusLabels[row.status] || row.status }}
-            </el-tag>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div class="status-dot-wrapper">
+                <div class="status-dot" :class="statusTypes[row.status] || 'info'"></div>
+                <span class="status-dot-text">{{ statusLabels[row.status] || row.status }}</span>
+              </div>
+              <span style="font-weight: 500;" :class="{ 'completed-title': row.status === 'completed' }">{{ row.title }}</span>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
         <el-table-column prop="reminder_type" label="类型" width="110">
           <template #default="{ row }">
             {{ typeLabels[row.reminder_type] || row.reminder_type }}
@@ -60,26 +73,28 @@
         </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button
-              v-if="row.status !== 'completed'"
-              link
-              type="success"
-              size="small"
-              @click="handleComplete(row)"
-            >
-              <el-icon><Check /></el-icon>
-              完成
-            </el-button>
-            <el-button
-              v-if="!row.is_critical"
-              link
-              type="danger"
-              size="small"
-              @click="handleDelete(row)"
-            >
-              <el-icon><Delete /></el-icon>
-              删除
-            </el-button>
+            <div class="action-btns">
+              <el-button
+                v-if="row.status !== 'completed'"
+                link
+                type="success"
+                size="small"
+                @click="handleComplete(row)"
+              >
+                <el-icon><Check /></el-icon>
+                完成
+              </el-button>
+              <el-button
+                v-if="!row.is_critical"
+                link
+                type="danger"
+                size="small"
+                @click="handleDelete(row)"
+              >
+                <el-icon><Delete /></el-icon>
+                删除
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -96,7 +111,7 @@
     </el-card>
 
     <!-- Create Dialog -->
-    <el-dialog v-model="showDialog" title="新建提醒" width="500px" destroy-on-close>
+    <el-dialog v-model="showDialog" title="新建提醒" width="600px" destroy-on-close>
       <el-form :model="form" label-position="top">
         <el-form-item label="标题" required>
           <el-input v-model="form.title" placeholder="请输入提醒标题" />
@@ -146,7 +161,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Setting, Check, Delete } from '@element-plus/icons-vue'
+import { Plus, Setting, Check, Delete, Search } from '@element-plus/icons-vue'
 import {
   getReminders,
   createReminder,
@@ -163,6 +178,7 @@ const pageSize = ref(20)
 const total = ref(0)
 const typeFilter = ref('')
 const statusFilter = ref('')
+const searchQuery = ref('')
 const showDialog = ref(false)
 const showSettingsDialog = ref(false)
 const settings = ref([])
@@ -191,6 +207,7 @@ const loadData = async () => {
     const params = { skip: (page.value - 1) * pageSize.value, limit: pageSize.value }
     if (typeFilter.value) params.reminder_type = typeFilter.value
     if (statusFilter.value) params.status = statusFilter.value
+    if (searchQuery.value) params.search = searchQuery.value
     const { data } = await getReminders(params)
     items.value = data.items
     total.value = data.total
@@ -350,5 +367,40 @@ onMounted(() => { loadData() })
 
 :deep(.overdue-row > td:first-child) {
   padding-left: 12px;
+}
+.completed-title {
+  text-decoration: line-through;
+  color: var(--text-tertiary, #94a3b8);
+}
+
+/* Modern Status Dots - Scoped */
+.status-dot-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: var(--bg-soft, #f8fafc);
+  border: 1px solid var(--border-light, #e2e8f0);
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.status-dot.primary { background-color: var(--el-color-primary); box-shadow: 0 0 4px var(--el-color-primary); }
+.status-dot.success { background-color: var(--el-color-success); box-shadow: 0 0 4px var(--el-color-success); }
+.status-dot.warning { background-color: var(--el-color-warning); box-shadow: 0 0 4px var(--el-color-warning); }
+.status-dot.danger { background-color: var(--el-color-danger); box-shadow: 0 0 4px var(--el-color-danger); }
+.status-dot.info { background-color: var(--el-color-info); box-shadow: 0 0 4px var(--el-color-info); }
+
+.status-dot-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+:deep(.action-btns .el-button + .el-button) {
+  margin-left: 0 !important;
 }
 </style>

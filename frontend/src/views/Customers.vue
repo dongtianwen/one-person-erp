@@ -2,8 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <div class="header-title-group">
-        <h2>客户管理</h2>
-        <span class="header-count mono">{{ total }} 位客户</span>
+        <span class="header-count mono">总计：{{ total }} 位客户</span>
       </div>
       <el-button type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon>
@@ -34,10 +33,18 @@
 
       <!-- Table -->
       <el-table :data="customers" style="width: 100%" v-loading="loading">
-        <el-table-column prop="name" label="客户名称" min-width="120">
+        <el-table-column type="selection" width="50" />
+        <el-table-column prop="name" label="客户名称" min-width="160">
           <template #default="{ row }">
-            <div class="cell-name clickable" @click="goDetail(row.id)">{{ row.name }}</div>
-            <div class="cell-sub">{{ row.company || '-' }}</div>
+            <div style="display: flex; align-items: flex-start; gap: 8px;">
+              <div class="status-dot-wrapper" style="margin-top: 2px;">
+                <div class="status-dot" :class="statusTypes[row.status] || 'info'"></div>
+              </div>
+              <div>
+                <div class="cell-name clickable" @click="goDetail(row.id)">{{ row.name }}</div>
+                <div class="cell-sub">{{ row.company || '-' }}</div>
+              </div>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="contact_person" label="联系人" width="100" />
@@ -46,23 +53,26 @@
             <span class="mono">{{ row.phone || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="90">
-          <template #default="{ row }">
-            <el-tag :type="statusTypes[row.status] || 'info'" size="small" round>
-              {{ statusLabels[row.status] || row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
+
         <el-table-column prop="source" label="来源" width="100">
           <template #default="{ row }">
             {{ sourceLabels[row.source] || row.source }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="140" fixed="right">
+        <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
             <div class="action-btns">
               <el-button link type="primary" size="small" @click="editCustomer(row)">编辑</el-button>
-              <el-button link type="danger" size="small" @click="handleDelete(row.id)">删除</el-button>
+              <el-dropdown trigger="click" placement="bottom-end">
+                <el-button link type="info" size="small" style="padding: 0 4px">
+                  <el-icon><MoreFilled /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="handleDelete(row.id)" style="color: var(--el-color-danger)">删除客户</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </div>
           </template>
         </el-table-column>
@@ -81,8 +91,8 @@
     </el-card>
 
     <!-- Create/Edit Dialog -->
-    <el-dialog v-model="showDialog" :title="editingId ? '编辑客户' : '新增客户'" width="520px" destroy-on-close>
-      <el-form :model="form" label-width="80px" label-position="top">
+    <el-dialog v-model="showDialog" :title="editingId ? '编辑客户' : '新增客户'" width="600px" destroy-on-close>
+      <el-form :model="form" label-position="top">
         <div class="form-grid">
           <el-form-item label="客户名称" required>
             <el-input v-model="form.name" placeholder="请输入客户名称" />
@@ -131,7 +141,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search } from '@element-plus/icons-vue'
+import { Plus, Search, MoreFilled } from '@element-plus/icons-vue'
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from '../api/customers'
 
 const router = useRouter()
@@ -248,11 +258,42 @@ const goDetail = (id) => {
 
 .cell-name.clickable {
   cursor: pointer;
+  transition: color 0.2s ease;
+}
+.clickable:hover {
   color: var(--brand-cyan, #0891b2);
+  text-decoration: underline;
 }
 
-.cell-name.clickable:hover {
-  text-decoration: underline;
+/* Modern Status Dots - Scoped */
+.status-dot-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: var(--bg-soft, #f8fafc);
+  border: 1px solid var(--border-light, #e2e8f0);
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.status-dot.primary { background-color: var(--el-color-primary); box-shadow: 0 0 4px var(--el-color-primary); }
+.status-dot.success { background-color: var(--el-color-success); box-shadow: 0 0 4px var(--el-color-success); }
+.status-dot.warning { background-color: var(--el-color-warning); box-shadow: 0 0 4px var(--el-color-warning); }
+.status-dot.danger { background-color: var(--el-color-danger); box-shadow: 0 0 4px var(--el-color-danger); }
+.status-dot.info { background-color: var(--el-color-info); box-shadow: 0 0 4px var(--el-color-info); }
+
+.status-dot-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+:deep(.action-btns .el-button + .el-button) {
+  margin-left: 0 !important;
 }
 
 .cell-sub {

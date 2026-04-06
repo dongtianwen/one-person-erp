@@ -2,8 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <div class="header-title-group">
-        <h2>报价单管理</h2>
-        <span class="header-count mono">{{ total }} 条记录</span>
+        <span class="header-count mono">总计：{{ total }} 条记录</span>
       </div>
       <el-button type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon>
@@ -13,52 +12,78 @@
 
     <el-card>
       <div class="filter-bar">
+        <el-input
+          v-model="searchQuery"
+          placeholder="搜索报价标题..."
+          style="width: 250px"
+          clearable
+          :prefix-icon="Search"
+          @clear="loadData"
+          @keyup.enter="loadData"
+        />
         <el-select v-model="statusFilter" placeholder="状态" clearable style="width: 130px" @change="loadData">
           <el-option v-for="(label, val) in statusLabels" :key="val" :label="label" :value="val" />
         </el-select>
         <el-select v-model="customerFilter" placeholder="客户" clearable filterable style="width: 180px" @change="loadData">
           <el-option v-for="c in customerOptions" :key="c.id" :label="c.name" :value="c.id" />
         </el-select>
-        <el-button type="primary" @click="loadData">筛选</el-button>
+        <el-button type="primary" @click="loadData">查询</el-button>
       </div>
 
       <el-table :data="records" style="width: 100%" v-loading="loading">
-        <el-table-column prop="quotation_number" label="报价编号" width="170">
+        <el-table-column type="selection" width="40" />
+        <el-table-column prop="quotation_number" label="报价编号" width="160">
           <template #default="{ row }">
             <span class="mono contract-no">{{ row.quotation_number }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="title" label="报价标题" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="customer_id" label="客户" width="140">
+        <el-table-column prop="title" label="报价标题" min-width="160" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div class="status-dot-wrapper">
+                <div class="status-dot" :class="statusTypes[row.status] || 'info'"></div>
+                <span class="status-dot-text">{{ statusLabels[row.status] || row.status }}</span>
+              </div>
+              <span style="font-weight: 500;">{{ row.title }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="customer_id" label="客户" width="120">
           <template #default="{ row }">
             {{ getCustomerName(row.customer_id) }}
           </template>
         </el-table-column>
-        <el-table-column prop="amount" label="报价金额" width="130">
+        <el-table-column prop="amount" label="报价金额" width="120" align="right">
           <template #default="{ row }">
-            <span class="mono">¥{{ (row.amount || 0).toLocaleString() }}</span>
+            <span class="mono">¥{{ (row.amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="validity_date" label="有效期至" width="120">
+        <el-table-column prop="validity_date" label="有效期至" width="110">
           <template #default="{ row }">
             <span class="mono">{{ row.validity_date }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
-            <el-tag :type="statusTypes[row.status] || 'info'" size="small" round>
-              {{ statusLabels[row.status] || row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openEdit(row)" v-if="canEdit(row.status)">编辑</el-button>
-            <el-button link type="success" size="small" @click="changeStatus(row, 'sent')" v-if="row.status === 'draft'">发送</el-button>
-            <el-button link type="success" size="small" @click="changeStatus(row, 'accepted')" v-if="row.status === 'sent'">接受</el-button>
-            <el-button link type="warning" size="small" @click="changeStatus(row, 'rejected')" v-if="row.status === 'sent'">拒绝</el-button>
-            <el-button link type="success" size="small" @click="handleConvert(row)" v-if="row.status === 'accepted' && !row.contract_id">转合同</el-button>
-            <el-button link type="danger" size="small" @click="handleDelete(row)" v-if="row.status === 'draft'">删除</el-button>
+            <div class="action-btns">
+              <el-button link type="primary" size="small" @click="openEdit(row)">
+                {{ canEdit(row.status) ? '编辑' : '查看' }}
+              </el-button>
+              <el-button link type="success" size="small" @click="handleConvert(row)" v-if="row.status === 'accepted' && !row.contract_id">转合同</el-button>
+              <el-dropdown trigger="click" v-if="['draft', 'sent'].includes(row.status)" placement="bottom-end">
+                <el-button link type="info" size="small" style="padding: 0 4px">
+                  <el-icon><MoreFilled /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="row.status === 'draft'" @click="changeStatus(row, 'sent')" style="color: var(--el-color-success)">发送给客户</el-dropdown-item>
+                    <el-dropdown-item v-if="row.status === 'sent'" @click="changeStatus(row, 'accepted')" style="color: var(--el-color-success)">客户已接受</el-dropdown-item>
+                    <el-dropdown-item v-if="row.status === 'sent'" @click="changeStatus(row, 'rejected')" style="color: var(--el-color-warning)">客户已拒绝</el-dropdown-item>
+                    <el-dropdown-item v-if="row.status === 'draft'" @click="handleDelete(row)" style="color: var(--el-color-danger)" divided>删除记录</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -76,18 +101,20 @@
 
     <!-- Create/Edit Dialog -->
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑报价单' : '新建报价单'" width="600px" destroy-on-close>
-      <el-form :model="form" :rules="formRules" ref="formRef" label-width="100px">
+      <el-form :model="form" :rules="formRules" ref="formRef" label-position="top">
         <el-form-item label="报价标题" prop="title">
           <el-input v-model="form.title" maxlength="200" placeholder="请输入报价标题" />
         </el-form-item>
-        <el-form-item label="客户" prop="customer_id">
-          <el-select v-model="form.customer_id" filterable placeholder="选择客户" style="width: 100%">
-            <el-option v-for="c in customerOptions" :key="c.id" :label="c.name" :value="c.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="报价金额" prop="amount">
-          <el-input-number v-model="form.amount" :min="0" :precision="2" :controls="false" style="width: 100%" />
-        </el-form-item>
+        <div class="form-grid">
+          <el-form-item label="客户" prop="customer_id">
+            <el-select v-model="form.customer_id" filterable placeholder="选择客户" style="width: 100%">
+              <el-option v-for="c in customerOptions" :key="c.id" :label="c.name" :value="c.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="报价金额" prop="amount">
+            <el-input-number v-model="form.amount" :min="0" :precision="2" :controls="false" style="width: 100%" />
+          </el-form-item>
+        </div>
         <el-form-item label="有效期至" prop="validity_date">
           <el-date-picker v-model="form.validity_date" type="date" value-format="YYYY-MM-DD" placeholder="选择有效期" style="width: 100%" />
         </el-form-item>
@@ -109,7 +136,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Search, MoreFilled } from '@element-plus/icons-vue'
 import { getQuotations, createQuotation, updateQuotation, deleteQuotation, convertToContract } from '../api/quotations'
 import { getCustomers } from '../api/customers'
 
@@ -120,6 +147,7 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const statusFilter = ref('')
 const customerFilter = ref('')
+const searchQuery = ref('')
 const customerOptions = ref([])
 
 const dialogVisible = ref(false)
@@ -144,7 +172,7 @@ const formRules = {
 }
 
 const statusLabels = { draft: '草稿', sent: '已发送', accepted: '已接受', rejected: '已拒绝', expired: '已过期' }
-const statusTypes = { draft: 'info', sent: '', accepted: 'success', rejected: 'danger', expired: 'warning' }
+const statusTypes = { draft: 'info', sent: 'primary', accepted: 'success', rejected: 'danger', expired: 'warning' }
 
 const canEdit = (status) => ['draft', 'sent'].includes(status)
 
@@ -162,6 +190,7 @@ const loadData = async () => {
     }
     if (statusFilter.value) params.status = statusFilter.value
     if (customerFilter.value) params.customer_id = customerFilter.value
+    if (searchQuery.value) params.search = searchQuery.value
     const { data } = await getQuotations(params)
     records.value = data.items
     total.value = data.total
@@ -297,5 +326,43 @@ onMounted(() => {
 
 .mono {
   font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+}
+
+.action-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+:deep(.action-btns .el-button + .el-button) {
+  margin-left: 0 !important;
+}
+
+/* Modern Status Dots - Scoped */
+.status-dot-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: var(--bg-soft, #f8fafc);
+  border: 1px solid var(--border-light, #e2e8f0);
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.status-dot.primary { background-color: var(--el-color-primary); box-shadow: 0 0 4px var(--el-color-primary); }
+.status-dot.success { background-color: var(--el-color-success); box-shadow: 0 0 4px var(--el-color-success); }
+.status-dot.warning { background-color: var(--el-color-warning); box-shadow: 0 0 4px var(--el-color-warning); }
+.status-dot.danger { background-color: var(--el-color-danger); box-shadow: 0 0 4px var(--el-color-danger); }
+.status-dot.info { background-color: var(--el-color-info); box-shadow: 0 0 4px var(--el-color-info); }
+
+.status-dot-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 </style>

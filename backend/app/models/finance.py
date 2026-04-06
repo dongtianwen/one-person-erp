@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, ForeignKey, Integer, Date, Float
+from sqlalchemy import Column, String, Text, ForeignKey, Integer, Date, Float, Boolean, Numeric
 from sqlalchemy.orm import relationship
 from app.models.base import Base, TimestampMixin
 
@@ -21,6 +21,17 @@ class FinanceRecord(Base, TimestampMixin):
     related_record_id = Column(Integer, ForeignKey("finance_records.id"), nullable=True)
     related_note = Column(String(200), nullable=True)
     settlement_status = Column(String(20), nullable=True)
+
+    # v1.3 外包协作字段
+    outsource_name = Column(String(200), nullable=True)
+    has_invoice = Column(Boolean, nullable=True)
+    tax_treatment = Column(String(20), nullable=True)
+
+    # v1.3 发票台账字段
+    invoice_direction = Column(String(10), nullable=True)
+    invoice_type = Column(String(20), nullable=True)
+    tax_rate = Column(Numeric(5, 4), nullable=True)
+    tax_amount = Column(Numeric(12, 2), nullable=True)
 
     contract = relationship("Contract", back_populates="finance_records")
     related_record = relationship("FinanceRecord", foreign_keys=[related_record_id], remote_side="FinanceRecord.id")
