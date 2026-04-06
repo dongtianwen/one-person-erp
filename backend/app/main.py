@@ -20,6 +20,7 @@ from app.api.endpoints import (
     quotations,
     customer_assets,
     cashflow,
+    exports,
 )
 from app.database import async_session
 from app.api.endpoints.auth import create_default_admin
@@ -114,6 +115,15 @@ app.include_router(file_indexes.router, prefix="/api/v1/file-indexes", tags=["�
 app.include_router(quotations.router, prefix="/api/v1/quotations", tags=["报价单管理"])
 app.include_router(customer_assets.router, prefix="/api/v1/customers/{customer_id}/assets", tags=["客户资产"])
 app.include_router(cashflow.router, prefix="/api/v1/cashflow", tags=["现金流预测"])
+# Debug: Check if exports router has routes
+if hasattr(exports.router, 'routes') and exports.router.routes:
+    logger.info(f"Exports router has {len(exports.router.routes)} route(s)")
+    for route in exports.router.routes:
+        logger.info(f"  Route: {route.path}")
+else:
+    logger.warning("Exports router has no routes")
+
+app.include_router(exports.router, prefix="/api/v1/export", tags=["数据导出"])
 
 
 @app.get("/health")

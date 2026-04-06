@@ -188,11 +188,11 @@ async def get_todo_items(db: AsyncSession = Depends(get_db), current_user: User 
         )
         tasks = task_result.scalars().all()
 
-        week_later = date.today() + timedelta(days=7)
+        month_later = date.today() + timedelta(days=30)
         contract_result = await db.execute(
             select(Contract)
             .where(
-                Contract.end_date <= week_later,
+                Contract.end_date <= month_later,
                 Contract.end_date >= date.today(),
                 Contract.status.in_(["active", "executing"]),
                 Contract.is_deleted == False,
@@ -206,7 +206,7 @@ async def get_todo_items(db: AsyncSession = Depends(get_db), current_user: User 
             select(Reminder)
             .where(
                 Reminder.status.in_(["pending", "overdue"]),
-                Reminder.reminder_date <= week_later,
+                Reminder.reminder_date <= month_later,
                 Reminder.is_deleted == False,
             )
             .order_by(

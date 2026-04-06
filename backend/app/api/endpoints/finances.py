@@ -13,6 +13,7 @@ from app.core.logging import get_logger
 
 logger = get_logger("finances")
 from app.models.finance import FinanceRecord
+from app.models.project import Project
 from app.crud import finance as finance_crud
 from app.crud import changelog as changelog_crud
 from app.schemas.finance import (
@@ -154,6 +155,12 @@ async def create_finance_record(
     _validate_outsource_fields(data)
     _validate_invoice_fields(data)
 
+    # v1.4 校验 related_project_id
+    if data.get("related_project_id") is not None:
+        proj = await db.execute(select(Project).where(Project.id == data["related_project_id"], Project.is_deleted == False))
+        if not proj.scalar_one_or_none():
+            raise HTTPException(status_code=422, detail="关联项目不存在")
+
     record = await finance_crud.finance_record.create_with_data(db, data)
     logger.info("finance_record created | id=%s type=%s amount=%s", record.id, record.type, record.amount)
     return FinanceRecordResponse.model_validate(record)
@@ -241,6 +248,12 @@ async def update_finance_record(
 
     _validate_outsource_fields(effective)
     _validate_invoice_fields(effective)
+
+    # v1.4 校验 related_project_id
+    if update_data.get("related_project_id") is not None:
+        proj = await db.execute(select(Project).where(Project.id == update_data["related_project_id"], Project.is_deleted == False))
+        if not proj.scalar_one_or_none():
+            raise HTTPException(status_code=422, detail="关联项目不存在")
 
     for field in ["outsource_name", "has_invoice", "tax_treatment", "invoice_direction", "invoice_type", "tax_rate", "tax_amount"]:
         update_data[field] = effective.get(field)

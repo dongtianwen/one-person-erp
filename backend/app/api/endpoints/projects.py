@@ -3,6 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from datetime import date
 
+from app.core.profit_utils import calculate_project_profit
+
 from app.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
@@ -23,7 +25,7 @@ from app.schemas.project import (
 router = APIRouter()
 
 
-@router.get("", response_model=list[ProjectResponse])
+@router.get("")
 async def list_projects(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -38,7 +40,15 @@ async def list_projects(
     if customer_id:
         filters["customer_id"] = customer_id
     items, _ = await project_crud.project.list(db, skip=skip, limit=limit, filters=filters)
-    return [ProjectResponse.model_validate(p) for p in items]
+
+    result = []
+    for p in items:
+        proj_dict = ProjectResponse.model_validate(p).model_dump()
+        profit_data = await calculate_project_profit(p.id, db)
+        proj_dict["profit"] = float(profit_data["profit"])
+        proj_dict["profit_margin"] = float(profit_data["profit_margin"]) if profit_data["profit_margin"] is not None else None
+        result.append(proj_dict)
+    return result
 
 
 @router.get("/{project_id}", response_model=ProjectDetailResponse)
@@ -91,6 +101,27 @@ async def update_project(
 
     project = await project_crud.project.update(db, project, project_in)
     return ProjectResponse.model_validate(project)
+
+
+@router.get("/{project_id}/profit")
+async def get_project_profit(
+    project_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    """FR-401: 项目利润核算接口"""
+    project = await project_crud.project.get(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    result = await calculate_project_profit(project_id, db)
+    return {
+        "project_id": project.id,
+        "project_name": project.name,
+        "income": float(result["income"]),
+        "cost": float(result["cost"]),
+        "profit": float(result["profit"]),
+        "profit_margin": float(result["profit_margin"]) if result["profit_margin"] is not None else None,
+        "currency": "CNY",
+    }
 
 
 @router.delete("/{project_id}")

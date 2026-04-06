@@ -28,3 +28,8 @@ INVOICE_TYPE_ELECTRONIC: str = "electronic"  # 电子发票
 TAX_TREATMENT_INVOICED: str = "invoiced"  # 已取得发票
 TAX_TREATMENT_WITHHOLDING: str = "withholding"  # 代扣个税
 TAX_TREATMENT_NONE: str = "none"  # 无需处理
+
+# ── v1.4 利润核算与导出 ──────────────────────────────────────
+PROFIT_DECIMAL_PLACES: int = 2  # 利润率精度，保留 2 位小数
+EXPORT_MAX_ROWS_PER_SHEET: int = 10000  # 单 Sheet 最大导出行数
+EXPORT_DATE_FORMAT: str = "%Y-%m-%d"  # 导出文件中的日期格式

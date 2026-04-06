@@ -58,6 +58,11 @@ const routes = [
         path: 'quotations',
         name: 'Quotations',
         component: () => import('../views/Quotations.vue')
+      },
+      {
+        path: 'exports',
+        name: 'Exports',
+        component: () => import('../views/Exports.vue')
       }
     ]
   }

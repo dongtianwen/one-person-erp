@@ -30,6 +30,9 @@ class FinanceRecordBase(BaseModel):
     tax_rate: Optional[Decimal] = None
     # tax_amount 不在 Create/Update schema 中——由后端计算
 
+    # v1.4 项目利润核算字段
+    related_project_id: Optional[int] = None
+
 
 class FinanceRecordCreate(FinanceRecordBase):
     pass
@@ -60,6 +63,9 @@ class FinanceRecordUpdate(BaseModel):
     invoice_type: Optional[str] = None
     tax_rate: Optional[Decimal] = None
 
+    # v1.4 项目利润核算字段
+    related_project_id: Optional[int] = None
+
 
 class FinanceRecordResponse(BaseModel):
     id: int
@@ -87,6 +93,9 @@ class FinanceRecordResponse(BaseModel):
     invoice_type: Optional[str] = None
     tax_rate: Optional[Decimal] = None
     tax_amount: Optional[Decimal] = None
+
+    # v1.4 项目利润核算字段
+    related_project_id: Optional[int] = None
 
     class Config:
         from_attributes = True

@@ -8,6 +8,7 @@ from app.api.deps import get_current_user
 from app.models.user import User
 from app.crud import customer as customer_crud
 from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerResponse, CustomerListResponse, CustomerDetailResponse
+from app.core.customer_utils import calculate_customer_lifetime_value
 
 router = APIRouter()
 
@@ -71,6 +72,9 @@ async def get_customer(
     )
     contracts = contract_result.scalars().all()
 
+    # v1.4: 客户生命周期价值
+    ltv_data = await calculate_customer_lifetime_value(customer_id, db)
+
     return CustomerDetailResponse(
         customer=CustomerResponse.model_validate(customer),
         projects=[
@@ -81,6 +85,17 @@ async def get_customer(
             {"id": c.id, "contract_no": c.contract_no, "title": c.title, "amount": c.amount, "status": c.status, "signed_date": str(c.signed_date) if c.signed_date else None, "start_date": str(c.start_date) if c.start_date else None, "end_date": str(c.end_date) if c.end_date else None}
             for c in contracts
         ],
+        lifetime_value={
+            "customer_id": customer_id,
+            "customer_name": customer.name,
+            "total_contract_amount": float(ltv_data["total_contract_amount"]),
+            "total_received_amount": float(ltv_data["total_received_amount"]),
+            "project_count": ltv_data["project_count"],
+            "avg_project_amount": float(ltv_data["avg_project_amount"]) if ltv_data["avg_project_amount"] is not None else None,
+            "first_cooperation_date": str(ltv_data["first_cooperation_date"]) if ltv_data["first_cooperation_date"] else None,
+            "last_cooperation_date": str(ltv_data["last_cooperation_date"]) if ltv_data["last_cooperation_date"] else None,
+            "currency": "CNY",
+        },
     )
 
 
@@ -114,6 +129,29 @@ async def update_customer(
 
     customer = await customer_crud.customer.update(db, customer, customer_in)
     return CustomerResponse.model_validate(customer)
+
+
+@router.get("/{customer_id}/lifetime-value")
+async def get_customer_lifetime_value(
+    customer_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    """FR-402: 客户生命周期价值接口"""
+    customer = await customer_crud.customer.get(db, customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="客户不存在")
+
+    ltv_data = await calculate_customer_lifetime_value(customer_id, db)
+    return {
+        "customer_id": customer_id,
+        "customer_name": customer.name,
+        "total_contract_amount": float(ltv_data["total_contract_amount"]),
+        "total_received_amount": float(ltv_data["total_received_amount"]),
+        "project_count": ltv_data["project_count"],
+        "avg_project_amount": float(ltv_data["avg_project_amount"]) if ltv_data["avg_project_amount"] is not None else None,
+        "first_cooperation_date": str(ltv_data["first_cooperation_date"]) if ltv_data["first_cooperation_date"] else None,
+        "last_cooperation_date": str(ltv_data["last_cooperation_date"]) if ltv_data["last_cooperation_date"] else None,
+        "currency": "CNY",
+    }
 
 
 @router.delete("/{customer_id}")

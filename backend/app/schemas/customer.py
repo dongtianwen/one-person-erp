@@ -41,6 +41,9 @@ class CustomerDetailResponse(BaseModel):
     customer: CustomerResponse
     projects: list[dict] = []
     contracts: list[dict] = []
+    lifetime_value: Optional[dict] = None
+    lifetime_value: Optional[dict] = None
+    lifetime_value: Optional[dict] = None
 
 
 class CustomerListResponse(BaseModel):

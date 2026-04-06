@@ -33,5 +33,9 @@ class FinanceRecord(Base, TimestampMixin):
     tax_rate = Column(Numeric(5, 4), nullable=True)
     tax_amount = Column(Numeric(12, 2), nullable=True)
 
+    # v1.4 项目利润核算字段
+    related_project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
+
     contract = relationship("Contract", back_populates="finance_records")
+    related_project = relationship("Project", foreign_keys=[related_project_id])
     related_record = relationship("FinanceRecord", foreign_keys=[related_record_id], remote_side="FinanceRecord.id")

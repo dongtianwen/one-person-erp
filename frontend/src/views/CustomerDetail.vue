@@ -55,6 +55,41 @@
           </el-card>
         </el-tab-pane>
 
+        <!-- Customer Lifetime Value Panel -->
+        <el-tab-pane label="客户价值" name="ltv">
+          <el-card class="ltv-card">
+            <div class="ltv-grid">
+              <div class="ltv-item">
+                <span class="ltv-label">历史合同总额</span>
+                <span class="ltv-value mono">{{ ltvData.total_contract_amount !== null ? '¥' + Number(ltvData.total_contract_amount).toLocaleString() : '—' }}</span>
+              </div>
+              <div class="ltv-item">
+                <span class="ltv-label">历史实收金额</span>
+                <span class="ltv-value mono">{{ ltvData.total_received_amount !== null ? '¥' + Number(ltvData.total_received_amount).toLocaleString() : '—' }}</span>
+              </div>
+              <div class="ltv-item">
+                <span class="ltv-label">合作项目数</span>
+                <span class="ltv-value mono">{{ ltvData.project_count !== null ? ltvData.project_count : '—' }}</span>
+              </div>
+              <div class="ltv-item">
+                <span class="ltv-label">平均项目金额</span>
+                <span class="ltv-value mono">{{ ltvData.avg_project_amount !== null ? '¥' + Number(ltvData.avg_project_amount).toLocaleString() : '—' }}</span>
+              </div>
+              <div class="ltv-item">
+                <span class="ltv-label">首次合作日期</span>
+                <span class="ltv-value mono">{{ ltvData.first_cooperation_date || '—' }}</span>
+              </div>
+              <div class="ltv-item">
+                <span class="ltv-label">最近合作日期</span>
+                <span class="ltv-value mono">{{ ltvData.last_cooperation_date || '—' }}</span>
+              </div>
+            </div>
+            <div v-if="ltvError" class="ltv-error">
+              <el-alert title="数据加载失败，请刷新" type="error" :closable="false" />
+            </div>
+          </el-card>
+        </el-tab-pane>
+
         <el-tab-pane :label="'关联项目 (' + projects.length + ')'" name="projects">
           <el-card>
             <div v-if="projects.length === 0" class="empty-hint">暂无关联项目</div>
@@ -202,6 +237,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { getCustomer } from '../api/customers'
 import { getCustomerAssets, createCustomerAsset, updateCustomerAsset, deleteCustomerAsset } from '../api/customerAssets'
+import api from '../api/index'
 
 import { Plus } from '@element-plus/icons-vue'
 
@@ -212,6 +248,15 @@ const projects = ref([])
 const contracts = ref([])
 const loading = ref(true)
 const activeTab = ref('info')
+const ltvData = ref({
+  total_contract_amount: null,
+  total_received_amount: null,
+  project_count: null,
+  avg_project_amount: null,
+  first_cooperation_date: null,
+  last_cooperation_date: null,
+})
+const ltvError = ref(false)
 
 const statusLabels = { potential: '潜在', follow_up: '跟进', deal: '成交', lost: '流失' }
 const statusTypes = { potential: 'info', follow_up: 'warning', deal: 'success', lost: 'danger' }
@@ -231,11 +276,30 @@ const loadData = async () => {
     projects.value = data.projects || []
     contracts.value = data.contracts || []
     loadAssets()
+    loadLtv()
   } catch {
     ElMessage.error('客户不存在或加载失败')
     router.back()
   } finally {
     loading.value = false
+  }
+}
+
+const loadLtv = async () => {
+  try {
+    const { data } = await api.get(`/customers/${route.params.id}/lifetime-value`)
+    ltvData.value = data
+    ltvError.value = false
+  } catch {
+    ltvError.value = true
+    ltvData.value = {
+      total_contract_amount: null,
+      total_received_amount: null,
+      project_count: null,
+      avg_project_amount: null,
+      first_cooperation_date: null,
+      last_cooperation_date: null,
+    }
   }
 }
 
@@ -391,5 +455,48 @@ const handleDeleteAsset = async (row) => {
 .contract-no {
   font-weight: 600;
   color: var(--brand-cyan, #0891b2);
+}
+
+/* LTV Card Styles */
+.ltv-card {
+  max-width: 800px;
+}
+
+.ltv-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.ltv-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  background: var(--bg-soft, #f8fafc);
+  border-radius: 8px;
+  border: 1px solid var(--border-light, #e2e8f0);
+}
+
+.ltv-label {
+  font-size: 12px;
+  color: var(--text-tertiary, #94a3b8);
+  font-weight: 500;
+}
+
+.ltv-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ltv-error {
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .ltv-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 </style>

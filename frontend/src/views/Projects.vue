@@ -40,12 +40,26 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="budget" label="预算" width="110" align="right">
+        <el-table-column prop="budget" label="预算" width="90" align="right">
           <template #default="{ row }">
-            <span class="mono">{{ row.budget ? '¥' + row.budget.toLocaleString() : '-' }}</span>
+            <span class="mono">{{ row.budget != null ? '¥' + Number(row.budget).toLocaleString() : '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="进度" width="150">
+        <el-table-column prop="profit" label="利润" width="90" align="right" sortable>
+          <template #default="{ row }">
+            <span class="mono" :class="{ negative: row.profit != null && row.profit < 0 }">
+              {{ row.profit != null ? '¥' + Number(row.profit).toLocaleString() : '—' }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="profit_margin" label="利润率" width="100" align="right" sortable>
+          <template #default="{ row }">
+            <span class="mono" :class="{ negative: row.profit_margin != null && row.profit_margin < 0 }">
+              {{ row.profit_margin != null ? row.profit_margin.toFixed(2) + '%' : '—' }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="进度" width="120">
           <template #default="{ row }">
             <div class="progress-cell">
               <el-progress
@@ -58,7 +72,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="时间" width="200">
+        <el-table-column label="时间" width="180">
           <template #default="{ row }">
             <div class="date-range mono">
               <span>{{ row.start_date || '-' }}</span>
@@ -67,7 +81,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="130" fixed="right">
           <template #default="{ row }">
             <div class="action-btns">
               <el-button link type="primary" size="small" @click="openDetail(row)">管理</el-button>
@@ -137,6 +151,39 @@
           <span class="detail-progress mono">{{ detailProject.progress || 0 }}%</span>
         </div>
       </div>
+
+      <!-- Profit Analysis Card -->
+      <el-card v-if="detailProject" class="profit-card" style="margin: 16px 0; padding: 16px;">
+        <div class="card-header">
+          <span class="card-title">利润分析</span>
+        </div>
+        <div class="card-body">
+          <div class="profit-grid">
+            <div class="profit-item">
+              <span class="profit-label">项目收入</span>
+              <span class="profit-value">{{ detailProject.income != null ? '¥' + Number(detailProject.income).toLocaleString() : '—' }}</span>
+            </div>
+            <div class="profit-item">
+              <span class="profit-label">项目成本</span>
+              <span class="profit-value">{{ detailProject.cost != null ? '¥' + Number(detailProject.cost).toLocaleString() : '—' }}</span>
+            </div>
+            <div class="profit-item">
+              <span class="profit-label">项目利润</span>
+              <span class="profit-value"
+                  :class="{ negative: detailProject.profit != null && detailProject.profit < 0 }">
+                {{ detailProject.profit != null ? '¥' + Number(detailProject.profit).toLocaleString() : '—' }}
+              </span>
+            </div>
+            <div class="profit-item">
+              <span class="profit-label">利润率</span>
+              <span class="profit-value"
+                  :class="{ negative: detailProject.profit_margin != null && detailProject.profit_margin < 0 }">
+                {{ detailProject.profit_margin != null ? detailProject.profit_margin.toFixed(2) + '%' : '—' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </el-card>
 
       <el-tabs v-model="detailTab" class="detail-tabs">
         <!-- Tasks Tab -->
@@ -264,6 +311,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, MoreFilled } from '@element-plus/icons-vue'
 import { getProjects, createProject, updateProject, deleteProject, getTasks, createTask, updateTask, getMilestones, createMilestone, updateMilestone } from '../api/projects'
 import { getCustomers } from '../api/customers'
+import api from '../api/index'
 
 const projects = ref([])
 const customers = ref([])
@@ -377,9 +425,20 @@ const openDetail = async (row) => {
 }
 
 const loadDetailData = async (projectId) => {
-  const [taskRes, msRes] = await Promise.all([getTasks(projectId), getMilestones(projectId)])
+  const [taskRes, msRes, profitRes] = await Promise.all([
+    getTasks(projectId),
+    getMilestones(projectId),
+    api.get(`/projects/${projectId}/profit`) // Fetch profit data
+  ])
   tasks.value = taskRes.data
   milestones.value = msRes.data
+  // Attach profit data to detailProject for easy access in template
+  Object.assign(detailProject.value, {
+    income: profitRes.data.income,
+    cost: profitRes.data.cost,
+    profit: profitRes.data.profit,
+    profit_margin: profitRes.data.profit_margin
+  })
 }
 
 // --- Task CRUD ---
@@ -745,5 +804,61 @@ onMounted(() => { loadData(); loadCustomers() })
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
+}
+
+/* Profit Analysis Card Styles */
+.profit-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 8px;
+}
+
+.card-header {
+  margin-bottom: 12px;
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.profit-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.profit-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: var(--bg-soft, #f8fafc);
+  border-radius: 6px;
+  border: 1px solid var(--border-light, #e2e8f0);
+}
+
+.profit-label {
+  font-size: 12px;
+  color: var(--text-tertiary, #94a3b8);
+  font-weight: 500;
+}
+
+.profit-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: var(--mono-font, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+}
+
+.profit-value.negative {
+  color: #ef4444;
+}
+
+@media (max-width: 768px) {
+  .profit-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 </style>

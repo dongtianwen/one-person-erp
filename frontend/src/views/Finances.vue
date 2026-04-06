@@ -218,6 +218,11 @@
             <el-option v-for="c in contracts" :key="c.id" :label="`${c.title} (${c.contract_no})`" :value="c.id" />
           </el-select>
         </el-form-item>
+        <el-form-item v-if="form.type === 'expense'" label="关联项目">
+          <el-select v-model="form.related_project_id" placeholder="选择项目（选填）" filterable clearable style="width: 100%">
+            <el-option v-for="p in projects" :key="p.id" :label="p.name" :value="p.id" />
+          </el-select>
+        </el-form-item>
         <div class="form-grid">
           <el-form-item label="发票号">
             <el-input v-model="form.invoice_no" placeholder="发票编号" clearable />
@@ -338,6 +343,7 @@ import api from '../api'
 const records = ref([])
 const fundingStats = ref({ funding_sources: {}, unclosed_advances: 0, unclosed_loans: 0 })
 const contracts = ref([])
+const projects = ref([])
 const changelogs = ref([])
 const loading = ref(false)
 const page = ref(1)
@@ -348,7 +354,7 @@ const statusFilter = ref('')
 const searchQuery = ref('')
 const showDialog = ref(false)
 const editingId = ref(null)
-const defaultForm = { type: 'income', amount: 0, category: 'other', description: '', date: '', contract_id: null, invoice_no: '', status: 'pending', funding_source: 'company_account', business_note: '', related_record_id: null, related_note: '', settlement_status: null, outsource_name: '', has_invoice: null, tax_treatment: null, invoice_direction: null, invoice_type: null, tax_rate: null }
+const defaultForm = { type: 'income', amount: 0, category: 'other', description: '', date: '', contract_id: null, invoice_no: '', status: 'pending', funding_source: 'company_account', business_note: '', related_record_id: null, related_note: '', settlement_status: null, outsource_name: '', has_invoice: null, tax_treatment: null, invoice_direction: null, invoice_type: null, tax_rate: null, related_project_id: null }
 const form = ref({ ...defaultForm })
 
 // v1.3 发票台账
@@ -457,6 +463,15 @@ const loadContracts = async () => {
   }
 }
 
+const loadProjects = async () => {
+  try {
+    const { data } = await api.get('/projects', { params: { skip: 0, limit: 100 } })
+    projects.value = data
+  } catch {
+    projects.value = []
+  }
+}
+
 const openCreate = () => {
   editingId.value = null
   form.value = { ...defaultForm }
@@ -530,7 +545,7 @@ const handleSubmit = async () => {
   } catch { /* handled */ }
 }
 
-onMounted(() => { loadData(); loadContracts(); loadFundingStats(); loadInvoiceLedger() })
+onMounted(() => { loadData(); loadContracts(); loadProjects(); loadFundingStats(); loadInvoiceLedger() })
 </script>
 
 <style scoped>
