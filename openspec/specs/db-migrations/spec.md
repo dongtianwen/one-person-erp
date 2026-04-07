@@ -1,76 +1,28 @@
-# db-migrations Specification
+## ADDED Requirements
 
-## Purpose
-数据库迁移管理，使用 Alembic 进行版本控制的 schema 变更。
-
-## Requirements
-
-### Requirement: Database schema changes SHALL be managed through Alembic migrations
-
-All database schema changes SHALL be implemented as Alembic migration scripts. The project SHALL use `alembic` for version-controlled schema migrations instead of `Base.metadata.create_all()`.
-
-#### Scenario: Running migrations applies schema changes
-- **WHEN** developer runs `alembic upgrade head`
-- **THEN** all pending migrations are applied in order
-- **AND** the database schema matches the current code expectations
-
-#### Scenario: Migration history is tracked
-- **WHEN** a new migration is generated
-- **THEN** a migration file is created in `backend/alembic/versions/`
-- **AND** the `alembic_version` table is updated with the new revision
-
-### Requirement: Existing data SHALL be preserved during migrations
-
-All migration scripts SHALL preserve existing data. New columns SHALL have appropriate default values for existing rows. The migration for `file_group_id` SHALL backfill UUIDs for existing records grouped by `(file_name, file_type)`.
-
-#### Scenario: Adding settlement_status preserves existing records
-- **WHEN** migration adds `settlement_status` to `finance_records`
-- **THEN** existing records have `settlement_status` set to NULL
-- **AND** no existing data is lost or modified
-
-#### Scenario: Backfilling file_group_id groups existing records
-- **WHEN** migration adds `file_group_id` to existing `file_indexes`
-- **THEN** records with the same `(file_name, file_type)` receive the same UUID
-- **AND** all existing records retain their original data
-
-### Requirement: Settings table SHALL be created via migration
-
-The `settings` table SHALL be created as a new table through an Alembic migration, not through `create_all()`. The migration SHALL create the table with columns: `key` (String, unique, primary key), `value` (Text), `created_at` (DateTime), `updated_at` (DateTime).
-
-#### Scenario: Settings table is created by migration
-- **WHEN** migration for settings table runs
-- **THEN** `settings` table exists with key, value, created_at, updated_at columns
-- **AND** `key` column has a unique constraint
-
-### Requirement: Application startup SHALL run pending migrations automatically
-
-On application startup, the system SHALL check for and apply any pending Alembic migrations before serving requests. This SHALL happen in the FastAPI lifespan event. If migration fails, the application SHALL log the error and exit.
-
-#### Scenario: Auto-migration on startup succeeds
-- **WHEN** application starts with pending migrations
-- **THEN** migrations are applied automatically
-- **AND** application continues normally
-
-#### Scenario: Migration failure prevents startup
-- **WHEN** migration fails during startup
-- **THEN** application logs the error
-- **AND** application exits with non-zero status code
-
-### Requirement: v1.3 database migration for contracts and finance_records
-The system SHALL provide migration script `backend/migrations/v1_3_migrate.py` that adds 2 fields to contracts (expected_payment_date, payment_stage_note) and 7 fields to finance_records (outsource_name, has_invoice, tax_treatment, invoice_direction, invoice_type, tax_rate, tax_amount). Three indexes SHALL be created: idx_contracts_expected_payment_date, idx_finance_records_invoice_direction, idx_finance_records_invoice_no. All new fields default to NULL. Migration MUST preserve all existing data.
+### Requirement: v1.4 database migration for finance_records
+系统 SHALL 提供迁移脚本 `backend/migrations/v1_4_migrate.py`，为 finance_records 表新增 related_project_id 字段（INTEGER NULL, REFERENCES projects(id) ON DELETE SET NULL）并创建索引 idx_finance_records_related_project_id。迁移 MUST 保留所有已有数据。
 
 #### Scenario: Migration preserves row counts
-- **WHEN** migration is executed
-- **THEN** finance_records and contracts row counts are unchanged
+- **WHEN** v1.4 迁移执行完成
+- **THEN** finance_records 行数与迁移前一致
 
 #### Scenario: Migration preserves existing field values
-- **WHEN** migration is executed
-- **THEN** randomly sampled records have identical field values to pre-migration snapshot
+- **WHEN** v1.4 迁移执行完成
+- **THEN** 随机抽样记录的所有原有字段值与迁移前快照一致
 
-#### Scenario: New fields default to NULL
-- **WHEN** migration is executed on existing records
-- **THEN** all new fields have NULL value for every existing row
+#### Scenario: New field defaults to NULL
+- **WHEN** v1.4 迁移在已有记录上执行
+- **THEN** 所有已有记录的 related_project_id 为 NULL
 
-#### Scenario: All three indexes exist after migration
-- **WHEN** migration is executed
-- **THEN** PRAGMA index_list confirms all three indexes exist
+#### Scenario: Index exists after migration
+- **WHEN** v1.4 迁移执行完成
+- **THEN** PRAGMA index_list 确认 idx_finance_records_related_project_id 存在
+
+#### Scenario: Foreign key constraint enforced
+- **WHEN** 设置 related_project_id 为不存在的项目 ID
+- **THEN** 数据库外键约束生效
+
+#### Scenario: Foreign key set null on project delete
+- **WHEN** 关联的项目被删除
+- **THEN** finance_records.related_project_id 自动设为 NULL
