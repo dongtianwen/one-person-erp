@@ -186,6 +186,11 @@
       </el-card>
 
       <el-tabs v-model="detailTab" class="detail-tabs">
+        <!-- 当前线上版本显示 -->
+        <div v-if="detailProject" class="detail-version">
+          当前线上版本：<span class="mono">{{ detailProject.current_version || '未发布' }}</span>
+        </div>
+
         <!-- Tasks Tab -->
         <el-tab-pane label="任务" name="tasks">
           <div class="tab-toolbar">
@@ -242,6 +247,26 @@
               <el-button link type="primary" size="small" @click="openMilestoneEdit(m)">编辑</el-button>
             </div>
           </div>
+        </el-tab-pane>
+
+        <!-- v1.5 新增 Tabs -->
+        <el-tab-pane label="需求" name="requirements">
+          <RequirementsTab :project-id="detailProject?.id" />
+        </el-tab-pane>
+        <el-tab-pane label="验收" name="acceptances">
+          <AcceptancesTab :project-id="detailProject?.id" />
+        </el-tab-pane>
+        <el-tab-pane label="交付物" name="deliverables">
+          <DeliverablesTab :project-id="detailProject?.id" />
+        </el-tab-pane>
+        <el-tab-pane label="版本" name="releases">
+          <ReleasesTab :project-id="detailProject?.id" />
+        </el-tab-pane>
+        <el-tab-pane label="售后" name="maintenance">
+          <MaintenanceTab :project-id="detailProject?.id" />
+        </el-tab-pane>
+        <el-tab-pane label="变更单摘要" name="change-orders">
+          <ChangeOrderSummary :project-id="detailProject?.id" />
         </el-tab-pane>
       </el-tabs>
     </el-dialog>
@@ -312,6 +337,12 @@ import { Plus, Search, MoreFilled } from '@element-plus/icons-vue'
 import { getProjects, createProject, updateProject, deleteProject, getTasks, createTask, updateTask, getMilestones, createMilestone, updateMilestone } from '../api/projects'
 import { getCustomers } from '../api/customers'
 import api from '../api/index'
+import RequirementsTab from './project-tabs/RequirementsTab.vue'
+import AcceptancesTab from './project-tabs/AcceptancesTab.vue'
+import DeliverablesTab from './project-tabs/DeliverablesTab.vue'
+import ReleasesTab from './project-tabs/ReleasesTab.vue'
+import MaintenanceTab from './project-tabs/MaintenanceTab.vue'
+import ChangeOrderSummary from './project-tabs/ChangeOrderSummary.vue'
 
 const projects = ref([])
 const customers = ref([])
@@ -425,19 +456,21 @@ const openDetail = async (row) => {
 }
 
 const loadDetailData = async (projectId) => {
-  const [taskRes, msRes, profitRes] = await Promise.all([
+  const [taskRes, msRes, profitRes, projectRes] = await Promise.all([
     getTasks(projectId),
     getMilestones(projectId),
-    api.get(`/projects/${projectId}/profit`) // Fetch profit data
+    api.get(`/projects/${projectId}/profit`),
+    api.get(`/projects/${projectId}`)
   ])
   tasks.value = taskRes.data
   milestones.value = msRes.data
-  // Attach profit data to detailProject for easy access in template
+  // Attach profit data + current_version to detailProject
   Object.assign(detailProject.value, {
     income: profitRes.data.income,
     cost: profitRes.data.cost,
     profit: profitRes.data.profit,
-    profit_margin: profitRes.data.profit_margin
+    profit_margin: profitRes.data.profit_margin,
+    current_version: projectRes.data.current_version || null
   })
 }
 
@@ -616,6 +649,13 @@ onMounted(() => { loadData(); loadCustomers() })
 /* Detail dialog */
 .detail-header {
   margin-bottom: 16px;
+}
+
+.detail-version {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  padding: 6px 0;
 }
 
 .detail-meta {

@@ -53,13 +53,19 @@ async def test_forecast_returns_correct_week_count(client):
 
 
 async def test_forecast_first_week_starts_on_monday(client):
-    """第一周起始为周一"""
+    """第一周起始：若今天为周一则从周一起，否则为当天（不完整周）"""
     h = await _auth(client)
     r = await client.get("/api/v1/cashflow/forecast", headers=h)
     assert r.status_code == 200
-    from datetime import datetime
+    from datetime import datetime, date
     ws = datetime.strptime(r.json()["forecast"][0]["week_start"], "%Y-%m-%d").date()
-    assert ws.weekday() == 0
+    today = date.today()
+    if today.weekday() == 0:
+        # 今天是周一，第一周应从今天（周一）开始
+        assert ws.weekday() == 0
+    else:
+        # 今天非周一，第一周从今天开始（不完整周），后续周从周一开始
+        assert ws == today
 
 
 async def test_forecast_last_day_is_exactly_day_90(client):
@@ -107,6 +113,7 @@ async def test_forecast_response_structure_exact_match(client):
     assert "total_predicted_income" in data["summary"]
     assert "total_predicted_expense" in data["summary"]
     assert "total_predicted_net" in data["summary"]
+    assert "net_30d" in data["summary"]
 
 
 async def test_forecast_all_amounts_two_decimal_precision(client):
@@ -144,3 +151,46 @@ async def test_forecast_expense_zero_when_no_history_no_error(client):
     assert r.status_code == 200
     data = r.json()
     assert data["summary"]["total_predicted_expense"] == 0.00
+
+
+# --- v1.5 现金流30天预警 ---
+
+
+async def test_forecast_net_30d_field_exists(client):
+    """summary 包含 net_30d 字段"""
+    h = await _auth(client)
+    r = await client.get("/api/v1/cashflow/forecast", headers=h)
+    assert r.status_code == 200
+    summary = r.json()["summary"]
+    assert "net_30d" in summary
+    assert isinstance(summary["net_30d"], float)
+
+
+async def test_forecast_net_30d_matches_first_30_days(client):
+    """net_30d 等于前30天各周 predicted_net 之和"""
+    h = await _auth(client)
+    r = await client.get("/api/v1/cashflow/forecast", headers=h)
+    assert r.status_code == 200
+    data = r.json()
+    forecast = data["forecast"]
+
+    # 累计前30天的周
+    days = 0
+    expected = 0.0
+    for w in forecast:
+        ws = __import__("datetime").datetime.strptime(w["week_start"], "%Y-%m-%d").date()
+        we = __import__("datetime").datetime.strptime(w["week_end"], "%Y-%m-%d").date()
+        week_days = (we - ws).days + 1
+        if days < 30:
+            expected += w["predicted_net"]
+            days += week_days
+
+    assert round(data["summary"]["net_30d"], 2) == round(expected, 2)
+
+
+async def test_forecast_net_30d_zero_when_no_data(client):
+    """无收入数据时 net_30d 为 0"""
+    h = await _auth(client)
+    r = await client.get("/api/v1/cashflow/forecast", headers=h)
+    assert r.status_code == 200
+    assert r.json()["summary"]["net_30d"] == 0.00

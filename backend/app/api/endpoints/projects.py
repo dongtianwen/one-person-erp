@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from datetime import date
@@ -58,10 +59,22 @@ async def get_project(
     project = await project_crud.project.get_with_relations(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="项目不存在")
+    # v1.5: 查询当前线上版本
+    from app.models.release import Release as ReleaseModel
+    release_result = await db.execute(
+        select(ReleaseModel).where(
+            ReleaseModel.project_id == project_id,
+            ReleaseModel.is_current_online == True,
+        )
+    )
+    current_release = release_result.scalar_one_or_none()
+    current_version = current_release.version_no if current_release else None
+
     return ProjectDetailResponse(
         project=ProjectResponse.model_validate(project),
         tasks=[TaskResponse.model_validate(t) for t in project.tasks],
         milestones=[MilestoneResponse.model_validate(m) for m in project.milestones],
+        current_version=current_version,
     )
 
 

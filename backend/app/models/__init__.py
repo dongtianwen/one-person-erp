@@ -10,6 +10,12 @@ from app.models.file_index import FileIndex
 from app.models.setting import SystemSetting
 from app.models.quotation import Quotation
 from app.models.customer_asset import CustomerAsset
+from app.models.requirement import Requirement, RequirementChange
+from app.models.change_order import ChangeOrder
+from app.models.acceptance import Acceptance
+from app.models.deliverable import Deliverable, AccountHandover
+from app.models.release import Release
+from app.models.maintenance import MaintenancePeriod
 
 __all__ = [
     "Base",
@@ -27,4 +33,12 @@ __all__ = [
     "SystemSetting",
     "Quotation",
     "CustomerAsset",
+    "Requirement",
+    "RequirementChange",
+    "ChangeOrder",
+    "Acceptance",
+    "Deliverable",
+    "AccountHandover",
+    "Release",
+    "MaintenancePeriod",
 ]

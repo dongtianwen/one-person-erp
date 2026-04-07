@@ -97,3 +97,4 @@ class ProjectDetailResponse(BaseModel):
     project: ProjectResponse
     tasks: list[TaskResponse]
     milestones: list[MilestoneResponse]
+    current_version: Optional[str] = None  # v1.5: 当前线上版本号，无数据时返回 null

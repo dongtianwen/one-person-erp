@@ -23,6 +23,16 @@
       </div>
     </div>
 
+    <!-- 现金流30天预警 -->
+    <el-alert
+      v-if="cashflow30dWarning"
+      :title="cashflow30dWarning"
+      type="error"
+      show-icon
+      :closable="false"
+      style="margin-top: 16px"
+    />
+
     <!-- Revenue Trend -->
     <el-card class="anim-fade-in-up stagger-2" style="margin-top: 20px">
       <template #header>
@@ -467,6 +477,11 @@ const loadData = async () => {
 
 // v1.3 现金流预测
 const cashflowError = ref('')
+const cashflow30dWarning = computed(() => {
+  const net30d = cashflowData.value.summary?.net_30d
+  if (net30d === undefined || net30d === null || net30d >= 0) return ''
+  return `未来30天现金流预警：预计净流出 ¥${formatNumber(Math.abs(net30d))}，建议关注资金安排`
+})
 const cfMaxValue = computed(() => {
   if (!cashflowData.value.forecast.length) return 1
   return Math.max(...cashflowData.value.forecast.flatMap(w => [Math.abs(w.income || 0), Math.abs(w.expense || 0), Math.abs(w.net || 0)]), 1)

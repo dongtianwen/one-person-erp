@@ -25,3 +25,4 @@ class Contract(Base, TimestampMixin):
     customer = relationship("Customer", back_populates="contracts")
     project = relationship("Project", back_populates="contracts")
     finance_records = relationship("FinanceRecord", back_populates="contract", cascade="all, delete-orphan")
+    change_orders = relationship("ChangeOrder", back_populates="contract")

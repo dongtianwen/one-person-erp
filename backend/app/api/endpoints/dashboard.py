@@ -87,6 +87,19 @@ async def get_dashboard(db: AsyncSession = Depends(get_db), current_user: User =
     except Exception:
         pass
 
+    # v1.5: Active maintenance count
+    active_maintenance_count = 0
+    try:
+        from app.models.maintenance import MaintenancePeriod
+        m_result = await db.execute(
+            select(func.count(MaintenancePeriod.id)).where(
+                MaintenancePeriod.status == "active",
+            )
+        )
+        active_maintenance_count = m_result.scalar() or 0
+    except Exception:
+        pass
+
     return {
         "monthly_income": monthly_summary["income"],
         "monthly_expense": monthly_summary["expense"],
@@ -95,6 +108,7 @@ async def get_dashboard(db: AsyncSession = Depends(get_db), current_user: User =
         "customer_conversion_rate": round(conversion_rate, 2),
         "accounts_receivable": accounts_receivable,
         "quotation_conversion_rate": quotation_conversion_rate,
+        "active_maintenance_count": active_maintenance_count,
     }
 
 

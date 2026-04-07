@@ -19,6 +19,11 @@ class Project(Base, TimestampMixin):
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
     milestones = relationship("Milestone", back_populates="project", cascade="all, delete-orphan")
     contracts = relationship("Contract", back_populates="project", cascade="all, delete-orphan")
+    requirements = relationship("Requirement", back_populates="project", cascade="all, delete-orphan")
+    acceptances = relationship("Acceptance", back_populates="project")
+    deliverables = relationship("Deliverable", back_populates="project")
+    releases = relationship("Release", back_populates="project")
+    maintenance_periods = relationship("MaintenancePeriod", back_populates="project")
 
 
 class Task(Base, TimestampMixin):

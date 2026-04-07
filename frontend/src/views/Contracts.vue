@@ -55,9 +55,10 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
             <div class="action-btns">
+              <el-button link type="primary" size="small" @click="openContractDetail(row)">管理</el-button>
               <el-button link type="primary" size="small" @click="editContract(row)">编辑</el-button>
             </div>
           </template>
@@ -134,16 +135,80 @@
         <el-button type="primary" @click="handleSubmit">{{ editingId ? '保存修改' : '创建合同' }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- Contract Detail Dialog -->
+    <el-dialog v-model="showContractDetail" :title="detailContract?.title || '合同详情'" width="780px" destroy-on-close top="5vh">
+      <div v-if="detailContract" class="detail-header">
+        <div class="detail-meta">
+          <span class="mono">{{ detailContract.contract_no }}</span>
+          <el-tag :type="statusTypes[detailContract.status] || 'info'" size="small" round>
+            {{ statusLabels[detailContract.status] || detailContract.status }}
+          </el-tag>
+          <span class="mono amount-cell">¥{{ (detailContract.amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) }}</span>
+        </div>
+      </div>
+      <el-tabs v-model="contractDetailTab">
+        <el-tab-pane label="变更单" name="change-orders">
+          <!-- 金额合计 -->
+          <div v-if="changeOrderSummary" class="co-summary">
+            <div class="co-summary-item"><span class="co-label">原合同金额</span><span class="mono co-value">¥{{ (detailContract?.amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2}) }}</span></div>
+            <div class="co-summary-item"><span class="co-label">变更单确认合计</span><span class="mono co-value">¥{{ (changeOrderSummary.confirmed_total || 0).toLocaleString(undefined, {minimumFractionDigits: 2}) }}</span></div>
+            <div class="co-summary-item"><span class="co-label">实际应收合计</span><span class="mono co-value co-highlight">¥{{ (changeOrderSummary.actual_receivable || 0).toLocaleString(undefined, {minimumFractionDigits: 2}) }}</span></div>
+          </div>
+          <div class="tab-toolbar">
+            <el-button type="primary" size="small" @click="openChangeOrderCreate"><el-icon><Plus /></el-icon> 新建变更单</el-button>
+          </div>
+          <el-table :data="changeOrders" style="width:100%" size="small" v-if="changeOrders.length">
+            <el-table-column prop="order_no" label="变更单号" width="150" />
+            <el-table-column prop="title" label="标题" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="amount" label="金额" width="100" align="right">
+              <template #default="{ row }"><span class="mono">¥{{ (row.amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2}) }}</span></template>
+            </el-table-column>
+            <el-table-column prop="status" label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag size="small" :type="coStatusColor[row.status] || 'info'">{{ coStatusLabels[row.status] || row.status }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="200">
+              <template #default="{ row }">
+                <el-button v-if="row.status === 'draft'" link size="small" type="primary" @click="handleCOStatusChange(row, 'sent')">发送</el-button>
+                <el-button v-if="row.status === 'draft'" link size="small" type="success" @click="handleCOStatusChange(row, 'confirmed')">直接确认</el-button>
+                <el-button v-if="row.status === 'sent'" link size="small" type="success" @click="handleCOStatusChange(row, 'confirmed')">确认</el-button>
+                <el-button v-if="row.status === 'confirmed'" link size="small" type="primary" @click="handleCOStatusChange(row, 'in_progress')">开始执行</el-button>
+                <el-button v-if="row.status === 'confirmed'" link size="small" type="success" @click="handleCOStatusChange(row, 'completed')">完成</el-button>
+                <el-button v-if="row.status === 'in_progress'" link size="small" type="success" @click="handleCOStatusChange(row, 'completed')">完成</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div v-else class="empty-hint">暂无变更单</div>
+        </el-tab-pane>
+      </el-tabs>
+
+      <!-- 新建变更单 -->
+      <el-dialog v-model="showCOForm" title="新建变更单" width="480px" destroy-on-close append-to-body>
+        <el-form :model="coForm" label-position="top">
+          <el-form-item label="标题" required><el-input v-model="coForm.title" /></el-form-item>
+          <el-form-item label="描述"><el-input v-model="coForm.description" type="textarea" :rows="3" /></el-form-item>
+          <el-form-item label="金额" required><el-input-number v-model="coForm.amount" :min="0" :precision="2" style="width:100%" /></el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="showCOForm = false">取消</el-button>
+          <el-button type="primary" @click="handleCOCreate">创建</el-button>
+        </template>
+      </el-dialog>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
 import api from '../api'
 import { getCustomers } from '../api/customers'
 import { getProjects } from '../api/projects'
+import { getChangeOrders, createChangeOrder, patchChangeOrder, getChangeOrderDetail } from '../api/changeOrders'
 
 const contracts = ref([])
 const customers = ref([])
@@ -160,6 +225,20 @@ const form = ref({ ...defaultForm })
 
 const statusLabels = { draft: '草稿', active: '生效', executing: '执行中', completed: '已完成', terminated: '终止' }
 const statusTypes = { draft: 'info', active: 'success', executing: 'primary', completed: '', terminated: 'danger' }
+
+// Contract Detail Dialog state
+const showContractDetail = ref(false)
+const contractDetailTab = ref('change-orders')
+const detailContract = ref(null)
+const changeOrders = ref([])
+const changeOrderSummary = ref(null)
+const showCOForm = ref(false)
+const coForm = ref({ title: '', description: '', amount: 0 })
+
+const coStatusLabels = { draft: '草稿', sent: '已发送', confirmed: '已确认', in_progress: '执行中', completed: '已完成' }
+const coStatusColor = { draft: 'info', sent: '', confirmed: 'success', in_progress: 'primary', completed: '' }
+
+const route = useRoute()
 
 const loadData = async () => {
   loading.value = true
@@ -219,7 +298,58 @@ const handleSubmit = async () => {
   } catch { /* handled */ }
 }
 
-onMounted(() => { loadData(); loadCustomers(); loadProjects() })
+onMounted(async () => {
+  await loadData()
+  loadCustomers()
+  loadProjects()
+  // Handle navigation from ChangeOrderSummary
+  if (route.query.contract_id) {
+    const contractId = Number(route.query.contract_id)
+    const contract = contracts.value.find(c => c.id === contractId)
+    if (contract) {
+      await openContractDetail(contract)
+    }
+  }
+})
+
+// --- Contract Detail Dialog ---
+const openContractDetail = async (row) => {
+  detailContract.value = row
+  contractDetailTab.value = 'change-orders'
+  showContractDetail.value = true
+  await loadChangeOrders(row.id)
+}
+
+const loadChangeOrders = async (contractId) => {
+  try {
+    const res = await getChangeOrders(contractId)
+    changeOrders.value = res.items || res
+    changeOrderSummary.value = { confirmed_total: res.confirmed_total, actual_receivable: res.actual_receivable }
+  } catch { /* handled */ }
+}
+
+const openChangeOrderCreate = () => {
+  coForm.value = { title: '', description: '', amount: 0 }
+  showCOForm.value = true
+}
+
+const handleCOCreate = async () => {
+  if (!coForm.value.title) { ElMessage.warning('请填写标题'); return }
+  try {
+    await createChangeOrder(detailContract.value.id, coForm.value)
+    ElMessage.success('变更单已创建')
+    showCOForm.value = false
+    await loadChangeOrders(detailContract.value.id)
+  } catch { /* handled */ }
+}
+
+const handleCOStatusChange = async (row, targetStatus) => {
+  try {
+    await patchChangeOrder(detailContract.value.id, row.id, { status: targetStatus })
+    ElMessage.success('状态已更新')
+    await loadChangeOrders(detailContract.value.id)
+  } catch { /* handled */ }
+}
 </script>
 
 <style scoped>
@@ -317,4 +447,15 @@ onMounted(() => { loadData(); loadCustomers(); loadProjects() })
 :deep(.action-btns .el-button + .el-button) {
   margin-left: 0 !important;
 }
+
+/* Contract Detail */
+.detail-header { margin-bottom: 16px; }
+.detail-meta { display: flex; align-items: center; gap: 12px; }
+.co-summary { display: flex; gap: 24px; margin-bottom: 16px; padding: 12px; background: var(--bg-soft, #f8fafc); border-radius: 6px; }
+.co-summary-item { display: flex; flex-direction: column; gap: 4px; }
+.co-label { font-size: 12px; color: var(--text-tertiary, #94a3b8); }
+.co-value { font-size: 16px; font-weight: 600; }
+.co-highlight { color: var(--el-color-primary); }
+.tab-toolbar { margin-bottom: 12px; }
+.empty-hint { color: #999; text-align: center; padding: 24px; }
 </style>

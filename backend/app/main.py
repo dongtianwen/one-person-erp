@@ -21,6 +21,13 @@ from app.api.endpoints import (
     customer_assets,
     cashflow,
     exports,
+    requirements,
+    acceptances,
+    deliverables,
+    releases,
+    change_orders,
+    project_change_orders,
+    maintenance,
 )
 from app.database import async_session
 from app.api.endpoints.auth import create_default_admin
@@ -124,6 +131,13 @@ else:
     logger.warning("Exports router has no routes")
 
 app.include_router(exports.router, prefix="/api/v1/export", tags=["数据导出"])
+app.include_router(requirements.router, prefix="/api/v1/projects/{project_id}/requirements", tags=["需求管理"])
+app.include_router(acceptances.router, prefix="/api/v1/projects/{project_id}/acceptances", tags=["验收管理"])
+app.include_router(deliverables.router, prefix="/api/v1/projects/{project_id}/deliverables", tags=["交付物管理"])
+app.include_router(releases.router, prefix="/api/v1/projects/{project_id}/releases", tags=["版本发布"])
+app.include_router(change_orders.router, prefix="/api/v1/contracts/{contract_id}/change-orders", tags=["变更单管理"])
+app.include_router(project_change_orders.router, prefix="/api/v1/projects/{project_id}/change-orders", tags=["变更单摘要"])
+app.include_router(maintenance.router, prefix="/api/v1/projects/{project_id}/maintenance-periods", tags=["售后/维护期"])
 
 
 @app.get("/health")

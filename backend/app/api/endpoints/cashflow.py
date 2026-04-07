@@ -159,12 +159,15 @@ async def get_cashflow_forecast(
     total_income = 0.0
     total_expense = 0.0
     total_net = 0.0
+    net_30d = 0.0
+    days_covered = 0
 
     for week in weeks:
         idx = week["week_index"]
         income = _round2(weekly_income.get(idx, 0))
         expense = _round2(weekly_expense.get(idx, 0))
         net = _round2(income - expense)
+        week_days = (week["week_end"] - week["week_start"]).days + 1
 
         forecast.append({
             "week_index": idx,
@@ -179,12 +182,18 @@ async def get_cashflow_forecast(
         total_expense += expense
         total_net += net
 
-    logger.info("cashflow_forecast | weeks=%d income=%.2f expense=%.2f net=%.2f", len(forecast), total_income, total_expense, total_net)
+        # 前 30 天净现金流累计
+        if days_covered < 30:
+            net_30d += net
+            days_covered += week_days
+
+    logger.info("cashflow_forecast | weeks=%d income=%.2f expense=%.2f net=%.2f net_30d=%.2f", len(forecast), total_income, total_expense, total_net, net_30d)
     return {
         "forecast": forecast,
         "summary": {
             "total_predicted_income": _round2(total_income),
             "total_predicted_expense": _round2(total_expense),
             "total_predicted_net": _round2(total_net),
+            "net_30d": _round2(net_30d),
         },
     }

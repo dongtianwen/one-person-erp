@@ -33,3 +33,22 @@ TAX_TREATMENT_NONE: str = "none"  # 无需处理
 PROFIT_DECIMAL_PLACES: int = 2  # 利润率精度，保留 2 位小数
 EXPORT_MAX_ROWS_PER_SHEET: int = 10000  # 单 Sheet 最大导出行数
 EXPORT_DATE_FORMAT: str = "%Y-%m-%d"  # 导出文件中的日期格式
+
+# ── v1.5 需求管理 ──────────────────────────────────────────
+REQUIREMENT_VERSION_PREFIX = "v"
+REQUIREMENT_SUMMARY_MAX_LENGTH = 10000
+CHANGE_ORDER_PREFIX = "BG"
+MAINTENANCE_REMINDER_DAYS_BEFORE = 30
+NOTES_SEPARATOR = "\n"   # notes 追加时的分隔符
+
+# ── 变更单状态流转白名单（精确定义，不得自行扩展） ──────
+CHANGE_ORDER_VALID_TRANSITIONS: dict[str, list[str]] = {
+    "draft": ["sent", "confirmed", "completed"],
+    "sent": ["confirmed", "completed"],
+    "confirmed": ["in_progress", "completed"],
+    "in_progress": ["completed"],
+    "completed": [],  # 空列表 = 不允许任何流转
+}
+
+# ── 密码字段检测规则（仅检测字段名，不扫描字段值）────────────────
+FORBIDDEN_FIELD_PATTERNS = ["password", "pwd", "secret", "passwd", "token"]

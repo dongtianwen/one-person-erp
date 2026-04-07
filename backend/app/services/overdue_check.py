@@ -3,13 +3,15 @@ import time
 from datetime import date, timedelta
 from typing import Literal
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.reminder import Reminder
 from app.models.file_index import FileIndex
 from app.models.quotation import Quotation
 from app.models.customer_asset import CustomerAsset
+from app.models.maintenance import MaintenancePeriod
+from app.core.constants import MAINTENANCE_REMINDER_DAYS_BEFORE
 
 logger = logging.getLogger("app.overdue_check")
 
@@ -20,6 +22,182 @@ def _reset_check_flag() -> None:
     """Reset the startup check flag (for testing only)."""
     global _OVERDUE_CHECK_EXECUTED
     _OVERDUE_CHECK_EXECUTED = False
+
+
+def _apply_throttle(query, mode: str, limit: int = 1000):
+    """Apply throttling limit for dashboard mode."""
+    if mode == "throttled":
+        query = query.limit(limit)
+    return query
+
+
+async def _check_overdue_reminders(db: AsyncSession, mode: str, today: date) -> int:
+    """Check 1: Overdue reminders (pending -> overdue)."""
+    query = select(Reminder).where(
+        Reminder.status == "pending",
+        Reminder.reminder_date < today,
+        Reminder.is_deleted == False,
+    )
+    if mode == "throttled":
+        window_start = today - timedelta(days=90)
+        query = query.where(Reminder.reminder_date >= window_start).limit(1000)
+
+    result = await db.execute(query)
+    overdue_reminders = result.scalars().all()
+    for r in overdue_reminders:
+        r.status = "overdue"
+        db.add(r)
+    return len(overdue_reminders)
+
+
+async def _check_expired_quotations(db: AsyncSession, mode: str, today: date) -> int:
+    """Check 2: Expired quotations (draft/sent -> expired)."""
+    q_query = select(Quotation).where(
+        Quotation.status.in_(["draft", "sent"]),
+        Quotation.validity_date < today,
+        Quotation.is_deleted == False,
+    )
+    q_query = _apply_throttle(q_query, mode)
+
+    q_result = await db.execute(q_query)
+    expired_quotations = q_result.scalars().all()
+    for q in expired_quotations:
+        q.status = "expired"
+        db.add(q)
+    return len(expired_quotations)
+
+
+async def _check_asset_expiry_reminders(db: AsyncSession, mode: str, today: date) -> int:
+    """Check 3: Asset expiry reminders (30 days before)."""
+    threshold = today + timedelta(days=30)
+    query = select(CustomerAsset).where(
+        CustomerAsset.expiry_date != None,
+        CustomerAsset.expiry_date <= threshold,
+        CustomerAsset.expiry_date >= today,
+        CustomerAsset.is_deleted == False,
+    )
+    query = _apply_throttle(query, mode)
+
+    result = await db.execute(query)
+    assets = result.scalars().all()
+    count = 0
+    for asset in assets:
+        existing = await db.execute(
+            select(func.count()).select_from(Reminder).where(
+                Reminder.entity_type == "customer_asset",
+                Reminder.entity_id == asset.id,
+                Reminder.reminder_type == "asset_expiry",
+                Reminder.is_deleted == False,
+            )
+        )
+        if existing.scalar() > 0:
+            continue
+        db.add(Reminder(
+            title=f"客户资产到期: {asset.name}",
+            reminder_type="asset_expiry",
+            is_critical=False,
+            reminder_date=asset.expiry_date,
+            status="pending",
+            entity_type="customer_asset",
+            entity_id=asset.id,
+            source="auto",
+        ))
+        count += 1
+    return count
+
+
+async def _check_file_expiry_reminders(db: AsyncSession, mode: str, today: date) -> int:
+    """Check 4: File index expiry reminders (30 days before)."""
+    threshold = today + timedelta(days=30)
+    query = select(FileIndex).where(
+        FileIndex.expiry_date != None,
+        FileIndex.expiry_date <= threshold,
+        FileIndex.expiry_date >= today,
+        FileIndex.is_current == True,
+        FileIndex.is_deleted == False,
+    )
+    query = _apply_throttle(query, mode)
+
+    result = await db.execute(query)
+    files = result.scalars().all()
+    count = 0
+    for f in files:
+        existing = await db.execute(
+            select(func.count()).select_from(Reminder).where(
+                Reminder.entity_type == "file_index",
+                Reminder.entity_id == f.id,
+                Reminder.reminder_type == "file_expiry",
+                Reminder.is_deleted == False,
+            )
+        )
+        if existing.scalar() > 0:
+            continue
+        db.add(Reminder(
+            title=f"文件到期: {f.name}",
+            reminder_type="file_expiry",
+            is_critical=False,
+            reminder_date=f.expiry_date,
+            status="pending",
+            entity_type="file_index",
+            entity_id=f.id,
+            source="auto",
+        ))
+        count += 1
+    return count
+
+
+async def _check_maintenance_expired(db: AsyncSession, mode: str, today: date) -> int:
+    """Check 5: Maintenance periods expired (active -> expired)."""
+    query = select(MaintenancePeriod).where(
+        MaintenancePeriod.status == "active",
+        MaintenancePeriod.end_date < today,
+    )
+    query = _apply_throttle(query, mode)
+
+    result = await db.execute(query)
+    expired_periods = result.scalars().all()
+    for mp in expired_periods:
+        mp.status = "expired"
+        db.add(mp)
+    return len(expired_periods)
+
+
+async def _check_maintenance_near_expiry(db: AsyncSession, mode: str, today: date) -> int:
+    """Check 6: Maintenance near-expiry reminders (MAINTENANCE_REMINDER_DAYS_BEFORE days)."""
+    threshold = today + timedelta(days=MAINTENANCE_REMINDER_DAYS_BEFORE)
+    query = select(MaintenancePeriod).where(
+        MaintenancePeriod.status == "active",
+        MaintenancePeriod.end_date >= today,
+        MaintenancePeriod.end_date <= threshold,
+    )
+    query = _apply_throttle(query, mode)
+
+    result = await db.execute(query)
+    near_periods = result.scalars().all()
+    count = 0
+    for mp in near_periods:
+        existing = await db.execute(
+            select(func.count()).select_from(Reminder).where(
+                Reminder.entity_type == "maintenance_period",
+                Reminder.entity_id == mp.id,
+                Reminder.reminder_type == "custom",
+                Reminder.is_deleted == False,
+            )
+        )
+        if existing.scalar() > 0:
+            continue
+        db.add(Reminder(
+            title=f"维护期即将到期: {mp.service_description}",
+            reminder_type="custom",
+            is_critical=False,
+            reminder_date=mp.end_date,
+            status="pending",
+            entity_type="maintenance_period",
+            entity_id=mp.id,
+            source="auto",
+        ))
+        count += 1
+    return count
 
 
 async def run_overdue_check(
@@ -38,132 +216,28 @@ async def run_overdue_check(
     start_time = time.time()
     source = "启动" if mode == "full" else "仪表盘"
     today = date.today()
-    results = {"reminders": 0, "quotations": 0, "asset_reminders": 0, "file_reminders": 0}
 
     try:
-        # --- Check 1: Overdue reminders (pending → overdue) ---
-        query = select(Reminder).where(
-            Reminder.status == "pending",
-            Reminder.reminder_date < today,
-            Reminder.is_deleted == False,
-        )
-        if mode == "throttled":
-            window_start = today - timedelta(days=90)
-            query = query.where(Reminder.reminder_date >= window_start).limit(1000)
-
-        result = await db.execute(query)
-        overdue_reminders = result.scalars().all()
-        for r in overdue_reminders:
-            r.status = "overdue"
-            db.add(r)
-        results["reminders"] = len(overdue_reminders)
-
-        # --- Check 2: Expired quotations (draft/sent → expired) ---
-        q_query = select(Quotation).where(
-            Quotation.status.in_(["draft", "sent"]),
-            Quotation.validity_date < today,
-            Quotation.is_deleted == False,
-        )
-        if mode == "throttled":
-            q_query = q_query.limit(1000)
-
-        q_result = await db.execute(q_query)
-        expired_quotations = q_result.scalars().all()
-        for q in expired_quotations:
-            q.status = "expired"
-            db.add(q)
-        results["quotations"] = len(expired_quotations)
-
-        # --- Check 3: Asset expiry reminders (30 days before) ---
-        asset_threshold = today + timedelta(days=30)
-        a_query = select(CustomerAsset).where(
-            CustomerAsset.expiry_date != None,
-            CustomerAsset.expiry_date <= asset_threshold,
-            CustomerAsset.expiry_date >= today,
-            CustomerAsset.is_deleted == False,
-        )
-        if mode == "throttled":
-            a_query = a_query.limit(1000)
-
-        a_result = await db.execute(a_query)
-        assets = a_result.scalars().all()
-        for asset in assets:
-            # Idempotent check: skip if reminder already exists
-            existing = await db.execute(
-                select(func.count()).select_from(Reminder).where(
-                    Reminder.entity_type == "customer_asset",
-                    Reminder.entity_id == asset.id,
-                    Reminder.reminder_type == "asset_expiry",
-                    Reminder.is_deleted == False,
-                )
-            )
-            if existing.scalar() > 0:
-                continue
-
-            reminder = Reminder(
-                title=f"客户资产到期: {asset.name}",
-                reminder_type="asset_expiry",
-                is_critical=False,
-                reminder_date=asset.expiry_date,
-                status="pending",
-                entity_type="customer_asset",
-                entity_id=asset.id,
-                source="auto",
-            )
-            db.add(reminder)
-            results["asset_reminders"] += 1
-
-        # --- Check 4: File index expiry reminders (30 days before) ---
-        f_query = select(FileIndex).where(
-            FileIndex.expiry_date != None,
-            FileIndex.expiry_date <= asset_threshold,
-            FileIndex.expiry_date >= today,
-            FileIndex.is_current == True,
-            FileIndex.is_deleted == False,
-        )
-        if mode == "throttled":
-            f_query = f_query.limit(1000)
-
-        f_result = await db.execute(f_query)
-        files = f_result.scalars().all()
-        for f in files:
-            existing = await db.execute(
-                select(func.count()).select_from(Reminder).where(
-                    Reminder.entity_type == "file_index",
-                    Reminder.entity_id == f.id,
-                    Reminder.reminder_type == "file_expiry",
-                    Reminder.is_deleted == False,
-                )
-            )
-            if existing.scalar() > 0:
-                continue
-
-            reminder = Reminder(
-                title=f"文件到期: {f.name}",
-                reminder_type="file_expiry",
-                is_critical=False,
-                reminder_date=f.expiry_date,
-                status="pending",
-                entity_type="file_index",
-                entity_id=f.id,
-                source="auto",
-            )
-            db.add(reminder)
-            results["file_reminders"] += 1
-
+        results = {
+            "reminders": await _check_overdue_reminders(db, mode, today),
+            "quotations": await _check_expired_quotations(db, mode, today),
+            "asset_reminders": await _check_asset_expiry_reminders(db, mode, today),
+            "file_reminders": await _check_file_expiry_reminders(db, mode, today),
+            "maintenance_expired": await _check_maintenance_expired(db, mode, today),
+            "maintenance_reminders": await _check_maintenance_near_expiry(db, mode, today),
+        }
         await db.commit()
-
     except Exception as e:
         await db.rollback()
         logger.error("逾期检查异常 | source=%s error=%s", source, str(e))
         raise
 
     elapsed = time.time() - start_time
-    total = sum(results.values())
     logger.info(
-        "逾期检查完成 | source=%s reminders=%d quotations=%d asset_reminders=%d file_reminders=%d elapsed=%.3fs",
+        "逾期检查完成 | source=%s reminders=%d quotations=%d asset_reminders=%d file_reminders=%d maintenance_expired=%d maintenance_reminders=%d elapsed=%.3fs",
         source, results["reminders"], results["quotations"],
-        results["asset_reminders"], results["file_reminders"], elapsed,
+        results["asset_reminders"], results["file_reminders"],
+        results["maintenance_expired"], results["maintenance_reminders"], elapsed,
     )
     return results
 
