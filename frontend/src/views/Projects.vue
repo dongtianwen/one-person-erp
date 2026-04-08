@@ -149,6 +149,17 @@
           </el-tag>
           <span class="detail-budget mono" v-if="detailProject.budget">¥{{ detailProject.budget.toLocaleString() }}</span>
           <span class="detail-progress mono">{{ detailProject.progress || 0 }}%</span>
+          <!-- v1.7 关闭项目按钮 -->
+          <el-button
+            v-if="detailProject.status !== 'completed'"
+            type="danger"
+            size="small"
+            plain
+            @click="openCloseCheck"
+          >
+            关闭项目
+          </el-button>
+          <el-tag v-else type="success" size="small" round>已完成</el-tag>
         </div>
       </div>
 
@@ -268,6 +279,17 @@
         <el-tab-pane label="变更单摘要" name="change-orders">
           <ChangeOrderSummary :project-id="detailProject?.id" />
         </el-tab-pane>
+
+        <!-- v1.7 新增 Tabs -->
+        <el-tab-pane label="变更单管理" name="change-orders-v17">
+          <ChangeOrdersTab :project-id="detailProject?.id" />
+        </el-tab-pane>
+        <el-tab-pane label="里程碑收款" name="milestone-payment">
+          <MilestonePaymentTab :project-id="detailProject?.id" />
+        </el-tab-pane>
+        <el-tab-pane label="工时记录" name="work-hours">
+          <WorkHoursTab :project-id="detailProject?.id" />
+        </el-tab-pane>
       </el-tabs>
     </el-dialog>
 
@@ -327,22 +349,96 @@
         <el-button type="primary" @click="handleMilestoneSubmit">{{ editingMilestoneId ? '保存' : '创建' }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- v1.7 关闭项目检查对话框 -->
+    <el-dialog
+      v-model="closeCheckDialogVisible"
+      title="项目关闭条件检查"
+      width="500px"
+      destroy-on-close
+    >
+      <div v-if="closeCheckData" v-loading="closeLoading">
+        <el-alert
+          :type="closeCheckData.can_close ? 'success' : 'warning'"
+          :closable="false"
+          show-icon
+          style="margin-bottom: 16px"
+        >
+          <template #title>
+            {{ closeCheckData.can_close ? '满足关闭条件，可以关闭项目' : '不满足关闭条件，请先完成以下项目' }}
+          </template>
+        </el-alert>
+
+        <div class="close-checklist">
+          <div class="checklist-item" :class="{ passed: closeCheckData.all_milestones_completed }">
+            <el-icon :class="closeCheckData.all_milestones_completed ? 'success-color' : 'warning-color'">
+              <CircleCheck v-if="closeCheckData.all_milestones_completed" />
+              <CircleClose v-else />
+            </el-icon>
+            <span class="checklist-label">所有里程碑已完成</span>
+          </div>
+          <div class="checklist-item" :class="{ passed: closeCheckData.final_acceptance_passed }">
+            <el-icon :class="closeCheckData.final_acceptance_passed ? 'success-color' : 'warning-color'">
+              <CircleCheck v-if="closeCheckData.final_acceptance_passed" />
+              <CircleClose v-else />
+            </el-icon>
+            <span class="checklist-label">最终验收已通过</span>
+          </div>
+          <div class="checklist-item" :class="{ passed: closeCheckData.payment_cleared }">
+            <el-icon :class="closeCheckData.payment_cleared ? 'success-color' : 'warning-color'">
+              <CircleCheck v-if="closeCheckData.payment_cleared" />
+              <CircleClose v-else />
+            </el-icon>
+            <span class="checklist-label">款项已结清</span>
+          </div>
+          <div class="checklist-item" :class="{ passed: closeCheckData.deliverables_archived }">
+            <el-icon :class="closeCheckData.deliverables_archived ? 'success-color' : 'warning-color'">
+              <CircleCheck v-if="closeCheckData.deliverables_archived" />
+              <CircleClose v-else />
+            </el-icon>
+            <span class="checklist-label">交付物已归档</span>
+          </div>
+          <div v-if="closeCheckData.blocking_items?.length > 0" class="blocking-items">
+            <div class="blocking-title">阻塞项：</div>
+            <div v-for="(item, idx) in closeCheckData.blocking_items" :key="idx" class="blocking-item">
+              • {{ item }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="closeCheckDialogVisible = false">取消</el-button>
+        <el-button
+          type="danger"
+          @click="handleClose"
+          :loading="closeLoading"
+          :disabled="!closeCheckData?.can_close"
+        >
+          确认关闭
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, MoreFilled } from '@element-plus/icons-vue'
+import { Plus, Search, MoreFilled, CircleCheck, CircleClose } from '@element-plus/icons-vue'
 import { getProjects, createProject, updateProject, deleteProject, getTasks, createTask, updateTask, getMilestones, createMilestone, updateMilestone } from '../api/projects'
 import { getCustomers } from '../api/customers'
 import api from '../api/index'
+import * as v17Api from '../api/v17'
 import RequirementsTab from './project-tabs/RequirementsTab.vue'
 import AcceptancesTab from './project-tabs/AcceptancesTab.vue'
 import DeliverablesTab from './project-tabs/DeliverablesTab.vue'
 import ReleasesTab from './project-tabs/ReleasesTab.vue'
 import MaintenanceTab from './project-tabs/MaintenanceTab.vue'
 import ChangeOrderSummary from './project-tabs/ChangeOrderSummary.vue'
+// v1.7 新增 Tabs
+import ChangeOrdersTab from './project-tabs/ChangeOrdersTab.vue'
+import MilestonePaymentTab from './project-tabs/MilestonePaymentTab.vue'
+import WorkHoursTab from './project-tabs/WorkHoursTab.vue'
 
 const projects = ref([])
 const customers = ref([])
@@ -378,6 +474,11 @@ const showMilestoneForm = ref(false)
 const editingMilestoneId = ref(null)
 const defaultMilestoneForm = { title: '', description: '', due_date: '' }
 const milestoneForm = ref({ ...defaultMilestoneForm })
+
+// v1.7 项目关闭
+const closeCheckDialogVisible = ref(false)
+const closeCheckData = ref(null)
+const closeLoading = ref(false)
 
 const progressColor = (p) => {
   if (p >= 100) return '#10b981'
@@ -552,6 +653,38 @@ const toggleMilestone = async (m) => {
     await loadDetailData(detailProject.value.id)
     loadData()
   } catch { /* handled */ }
+}
+
+// --- v1.7 项目关闭 ---
+const openCloseCheck = async () => {
+  closeLoading.value = true
+  try {
+    const res = await v17Api.checkProjectCloseConditions(detailProject.value.id)
+    closeCheckData.value = res.data
+    closeCheckDialogVisible.value = true
+  } catch (err) {
+    ElMessage.error('检查关闭条件失败: ' + (err.response?.data?.detail || err.message))
+  } finally {
+    closeLoading.value = false
+  }
+}
+
+const handleClose = async () => {
+  try {
+    await ElMessageBox.confirm('确认关闭该项目？关闭后将无法修改。', '确认关闭项目', { type: 'warning' })
+    closeLoading.value = true
+    await v17Api.closeProject(detailProject.value.id)
+    ElMessage.success('项目已关闭')
+    closeCheckDialogVisible.value = false
+    showDetail.value = false
+    loadData()
+  } catch (err) {
+    if (err !== 'cancel') {
+      ElMessage.error('关闭失败: ' + (err.response?.data?.detail || err.message))
+    }
+  } finally {
+    closeLoading.value = false
+  }
 }
 
 onMounted(() => { loadData(); loadCustomers() })
@@ -900,5 +1033,72 @@ onMounted(() => { loadData(); loadCustomers() })
   .profit-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* v1.7 关闭项目检查列表 */
+.close-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--bg-soft, #f8fafc);
+  border: 1px solid var(--border-light, #e2e8f0);
+}
+
+.checklist-item.passed {
+  background: var(--el-color-success-light-9, #f0f9eb);
+  border-color: var(--el-color-success-light-7, #c2e7b0);
+}
+
+.checklist-item:not(.passed) {
+  background: var(--el-color-warning-light-9, #fdf6ec);
+  border-color: var(--el-color-warning-light-7, #f5dab1);
+}
+
+.checklist-label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.checklist-hint {
+  font-size: 12px;
+  color: var(--el-color-warning);
+}
+
+.blocking-items {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--el-color-danger-light-9, #fef2f2);
+  border: 1px solid var(--el-color-danger-light-7, #fca5a5);
+  border-radius: 6px;
+}
+
+.blocking-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-color-danger);
+  margin-bottom: 8px;
+}
+
+.blocking-item {
+  font-size: 13px;
+  color: var(--el-color-danger);
+  padding: 4px 0;
+}
+
+.success-color {
+  color: var(--el-color-success);
+}
+
+.warning-color {
+  color: var(--el-color-warning);
 }
 </style>

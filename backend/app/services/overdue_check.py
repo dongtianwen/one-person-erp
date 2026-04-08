@@ -147,7 +147,7 @@ async def _check_file_expiry_reminders(db: AsyncSession, mode: str, today: date)
         if existing.scalar() > 0:
             continue
         db.add(Reminder(
-            title=f"文件到期: {f.name}",
+            title=f"文件到期: {f.file_name}",
             reminder_type="file_expiry",
             is_critical=False,
             reminder_date=f.expiry_date,

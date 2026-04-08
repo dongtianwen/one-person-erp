@@ -1,4 +1,4 @@
-"""v1.3 全局常量定义——业务代码中禁止使用魔术数字。"""
+"""v1.3 ~ v1.7 全局常量定义——业务代码中禁止使用魔术数字。"""
 
 # ── 现金流预测 ──────────────────────────────────────────────
 CASHFLOW_FORECAST_DAYS: int = 90  # 预测天数
@@ -42,6 +42,7 @@ MAINTENANCE_REMINDER_DAYS_BEFORE = 30
 NOTES_SEPARATOR = "\n"   # notes 追加时的分隔符
 
 # ── 变更单状态流转白名单（精确定义，不得自行扩展） ──────
+# v1.5 合同变更单状态流转
 CHANGE_ORDER_VALID_TRANSITIONS: dict[str, list[str]] = {
     "draft": ["sent", "confirmed", "completed"],
     "sent": ["confirmed", "completed"],
@@ -68,4 +69,18 @@ QUOTE_VALID_TRANSITIONS: dict[str, list[str]] = {
     "rejected": [],
     "expired": [],
     "cancelled": [],
+}
+
+# ── v1.7 项目执行控制 ────────────────────────────────────────
+# 变更单状态白名单
+CHANGE_ORDER_STATUS_WHITELIST: list[str] = ["pending", "confirmed", "rejected", "cancelled"]
+
+# 变更单状态流转规则（精确定义，不得自行扩展）
+# pending → confirmed / rejected / cancelled
+# confirmed 除外的三个状态为终态，不可再流转
+CHANGE_ORDER_VALID_TRANSITIONS_V17: dict[str, list[str]] = {
+    "pending": ["confirmed", "rejected", "cancelled"],
+    "confirmed": [],  # 终态
+    "rejected": [],   # 终态
+    "cancelled": [],  # 终态
 }

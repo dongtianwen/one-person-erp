@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
-from datetime import date
+from datetime import date, datetime
 
 
 class ProjectBase(BaseModel):
@@ -71,6 +71,9 @@ class MilestoneBase(BaseModel):
     description: str = ""
     due_date: date
     is_completed: bool = False
+    # v1.7 收款字段
+    payment_amount: Optional[float] = None
+    payment_due_date: Optional[date] = None
 
 
 class MilestoneCreate(MilestoneBase):
@@ -82,12 +85,18 @@ class MilestoneUpdate(BaseModel):
     description: Optional[str] = None
     due_date: Optional[date] = None
     is_completed: Optional[bool] = None
+    # v1.7 收款字段
+    payment_amount: Optional[float] = None
+    payment_due_date: Optional[date] = None
 
 
 class MilestoneResponse(MilestoneBase):
     id: int
     project_id: int
     completed_date: Optional[date] = None
+    # v1.7 收款状态
+    payment_status: str = "unpaid"
+    payment_received_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

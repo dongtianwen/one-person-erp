@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, ForeignKey, Integer, Date, Float, Boolean
+from sqlalchemy import Column, String, Text, ForeignKey, Integer, Date, Float, Boolean, DateTime, Numeric, JSON
 from sqlalchemy.orm import relationship
 from app.models.base import Base, TimestampMixin
 
@@ -14,6 +14,12 @@ class Project(Base, TimestampMixin):
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
     progress = Column(Integer, default=0)
+
+    # v1.7 项目关闭和工时字段
+    close_checklist = Column(JSON, nullable=True)  # 关闭条件快照
+    closed_at = Column(DateTime, nullable=True)  # 关闭时间
+    estimated_hours = Column(Integer, nullable=True)  # 预计工时
+    actual_hours = Column(Integer, nullable=True)  # 实际工时
 
     customer = relationship("Customer", back_populates="projects")
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
@@ -49,5 +55,11 @@ class Milestone(Base, TimestampMixin):
     due_date = Column(Date, nullable=False)
     completed_date = Column(Date, nullable=True)
     is_completed = Column(Boolean, default=False, nullable=False)
+
+    # v1.7 收款绑定字段
+    payment_amount = Column(Numeric(12, 2), nullable=True)  # 收款金额
+    payment_due_date = Column(Date, nullable=True)  # 收款到期日
+    payment_received_at = Column(DateTime, nullable=True)  # 实际收款时间
+    payment_status = Column(String(20), nullable=False, default="unpaid")  # unpaid/invoiced/received
 
     project = relationship("Project", back_populates="milestones")

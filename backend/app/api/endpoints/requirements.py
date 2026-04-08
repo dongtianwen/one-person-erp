@@ -1,4 +1,6 @@
-"""FR-501 需求版本管理与需求变更记录 API 路由"""
+"""FR-501 需求版本管理与需求变更记录 API 路由
+v1.7 变更冻结机制——需求冻结状态下直接修改返回 HTTP 409
+"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +12,7 @@ from app.models.user import User
 from app.models.project import Project
 from app.models.requirement import Requirement, RequirementChange
 from app.core.requirement_utils import set_requirement_as_current, can_modify_field
+from app.core.change_order_utils import is_project_requirements_frozen
 
 from app.schemas.requirement import (
     RequirementCreate,
@@ -125,10 +128,20 @@ async def update_requirement(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """全量更新。confirmed 状态下 summary/version_no 不可修改"""
+    """全量更新。confirmed 状态下 summary/version_no 不可修改
+
+    v1.7: 如果项目需求已冻结，直接修改返回 HTTP 409
+    """
     req = await db.get(Requirement, requirement_id)
     if not req or req.is_deleted or req.project_id != project_id:
         raise HTTPException(status_code=404, detail="需求版本不存在")
+
+    # v1.7: 检查需求是否冻结
+    if await is_project_requirements_frozen(db, project_id):
+        raise HTTPException(
+            status_code=409,
+            detail="需求已冻结，请通过变更单提交"
+        )
 
     # 字段修改约束
     update_data = req_in.model_dump(exclude_unset=True)

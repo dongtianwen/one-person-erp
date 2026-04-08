@@ -68,6 +68,18 @@ def _can_delete(quote: Quotation) -> bool:
     return quote.status in ("draft",)
 
 
+def _trigger_requirement_freeze(project_id: int) -> None:
+    """v1.7: 触发项目需求冻结。
+
+    当报价单被接受时，自动冻结该项目需求。
+    注意：此函数仅记录日志，实际冻结逻辑由 is_project_requirements_frozen_sync 判断。
+    """
+    logger = logging.getLogger("app.quotations")
+    logger.info(f"报价单已接受，项目 {project_id} 需求已冻结")
+    # 实际的冻结判断通过查询 quotation.status = 'accepted' 来实现
+    # 这里只需要记录日志，不需要额外的数据库操作
+
+
 def _validate_core_fields(updates: dict) -> None:
     """校验核心字段。"""
     if "estimate_days" in updates:
@@ -139,7 +151,10 @@ def _recalc_amounts(q: Quotation, update_data: dict) -> set:
 
 
 def _apply_status_change(q: Quotation, update_data: dict) -> None:
-    """处理状态变更，写入对应时间戳。"""
+    """处理状态变更，写入对应时间戳。
+
+    v1.7: 当状态变更为 accepted 时，触发项目需求冻结。
+    """
     if "status" not in update_data or update_data["status"] == q.status:
         return
     new_status = update_data["status"]
@@ -147,6 +162,10 @@ def _apply_status_change(q: Quotation, update_data: dict) -> None:
     ts_field = {"sent": "sent_at", "accepted": "accepted_at", "rejected": "rejected_at"}.get(new_status)
     if ts_field:
         setattr(q, ts_field, datetime.utcnow())
+
+    # v1.7: 报价 accepted 后触发需求冻结
+    if new_status == "accepted" and q.project_id:
+        _trigger_requirement_freeze(q.project_id)
 
 
 @router.get("", response_model=QuotationListResponse)

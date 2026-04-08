@@ -198,6 +198,70 @@
       </el-col>
     </el-row>
 
+    <!-- v1.7 WIP 看板 -->
+    <el-card class="anim-fade-in-up" style="margin-top: 20px">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">进行中项目 (WIP)</span>
+          <el-tag v-if="wipProjects.length" size="small" type="primary" round>{{ wipProjects.length }} 个</el-tag>
+        </div>
+      </template>
+      <!-- v1.7 WIP 超限警告 -->
+      <el-alert
+        v-if="wipProjects.length > 2"
+        type="warning"
+        :closable="false"
+        show-icon
+        style="margin-bottom: 16px"
+      >
+        <template #title>
+          当前有 {{ wipProjects.length }} 个项目并行，注意精力分配
+        </template>
+      </el-alert>
+      <div v-if="!wipProjects.length" class="empty-state">
+        <el-icon :size="32" color="var(--text-tertiary)"><DataBoard /></el-icon>
+        <p>暂无进行中的项目</p>
+      </div>
+      <el-table v-else :data="wipProjects" stripe size="small">
+        <el-table-column prop="name" label="项目名称" min-width="160" />
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="statusTypes[row.status] || 'info'" size="small">
+              {{ statusLabels[row.status] || row.status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="进度" width="120">
+          <template #default="{ row }">
+            <div class="progress-cell">
+              <el-progress
+                :percentage="row.progress || 0"
+                :stroke-width="6"
+                :color="progressColor(row.progress)"
+                :show-text="false"
+              />
+              <span class="progress-label mono">{{ row.progress || 0 }}%</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="start_date" label="开始日期" width="100">
+          <template #default="{ row }">
+            <span class="mono">{{ row.start_date || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="end_date" label="结束日期" width="100">
+          <template #default="{ row }">
+            <span class="mono">{{ row.end_date || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="80">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="goToProject(row.id)">查看</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
     <!-- Bottom Row: 3 columns -->
     <el-row :gutter="20" style="margin-top: 20px">
       <el-col :span="8">
@@ -378,6 +442,7 @@ import {
   Calendar, Document, Clock, Plus, Download, Bell
 } from '@element-plus/icons-vue'
 import { getDashboard, getCustomerFunnel, getProjectStatus, getTodos, getRevenueTrend, backupDatabase, listBackups, verifyBackup, getCashflowForecast, getTaxSummary } from '../api/dashboard'
+import { getProjects } from '../api/projects'
 
 const functor = ref(null)
 const router = useRouter()
@@ -394,10 +459,14 @@ const cashflowData = ref({ forecast: [], summary: {} })
 const taxSummary = ref({ output_tax_total: 0, input_tax_total: 0, tax_payable: 0 })
 const taxLoading = ref(false)
 
+// v1.7 WIP 看板
+const wipProjects = ref([])
+
 const stageLabels = { potential: '潜在客户', follow_up: '跟进中', deal: '成交', lost: '流失' }
 const stageColors = { potential: '#94a3b8', follow_up: '#06b6d4', deal: '#10b981', lost: '#f43f5e' }
-const statusLabels = { requirements: '需求', design: '设计', development: '开发', testing: '测试', delivery: '交付', paused: '暂停' }
-const statusColors = { requirements: '#94a3b8', design: '#8b5cf6', development: '#06b6d4', testing: '#f59e0b', delivery: '#10b981', paused: '#ef4444' }
+const statusLabels = { requirements: '需求', design: '设计', development: '开发', testing: '测试', delivery: '交付', paused: '暂停', completed: '已完成' }
+const statusColors = { requirements: '#94a3b8', design: '#8b5cf6', development: '#06b6d4', testing: '#f59e0b', delivery: '#10b981', paused: '#ef4444', completed: '#10b981' }
+const statusTypes = { requirements: 'info', design: '', development: 'primary', testing: 'warning', delivery: 'success', paused: 'info', completed: 'success' }
 
 const metricCards = computed(() => [
   { key: 'income', label: '本月收入', value: metrics.value.monthly_income, prefix: '¥', color: '#10b981', glow: 'rgba(16, 185, 129, 0.12)', icon: TrendCharts },
@@ -474,6 +543,28 @@ const loadData = async () => {
     todos.value = todosRes.data
     revenueTrend.value = trendRes.data || []
   } catch { /* silently degrade */ }
+}
+
+// v1.7 加载 WIP 项目
+const loadWipProjects = async () => {
+  try {
+    const { data } = await getProjects()
+    // 过滤出进行中的项目（status !== 'completed' 且 status !== 'paused'）
+    wipProjects.value = (data?.items || data || []).filter(p => p.status !== 'completed' && p.status !== 'paused')
+  } catch {
+    wipProjects.value = []
+  }
+}
+
+const progressColor = (p) => {
+  if (p >= 100) return '#10b981'
+  if (p >= 70) return '#06b6d4'
+  if (p >= 40) return '#f59e0b'
+  return '#94a3b8'
+}
+
+const goToProject = (projectId) => {
+  router.push({ path: '/projects', query: { id: projectId } })
 }
 
 // v1.3 现金流预测
@@ -576,7 +667,7 @@ const formatFileSize = (bytes) => {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-onMounted(() => { loadData(); loadBackups(); loadCashflowForecast(); loadTaxSummary() })
+onMounted(() => { loadData(); loadBackups(); loadCashflowForecast(); loadTaxSummary(); loadWipProjects() })
 </script>
 
 <style scoped>
@@ -1128,6 +1219,43 @@ onMounted(() => { loadData(); loadBackups(); loadCashflowForecast(); loadTaxSumm
   font-size: 11px;
   color: var(--text-tertiary);
   text-align: center;
+}
+
+/* ---- WIP Progress Cell ---- */
+.wip-progress-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wip-progress-cell :deep(.el-progress) {
+  flex: 1;
+}
+
+.wip-progress-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 32px;
+  text-align: right;
+}
+
+.progress-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress-cell :deep(.el-progress) {
+  flex: 1;
+}
+
+.progress-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 32px;
+  text-align: right;
 }
 
 /* ---- Responsive ---- */

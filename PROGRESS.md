@@ -1,3 +1,45 @@
+# v1.7 执行进度
+
+## 状态：✅ 全部完成（后端 + 前端）
+## 开始时间：2026-04-08
+## 完成时间：2026-04-08
+
+## 前置检查
+- [x] v1.0~v1.6 全量测试通过（332 passed, 0 FAILED）
+- [x] 所有必需表存在（16个表全部存在）
+- [x] logs/ 目录存在，RotatingFileHandler 配置正确（10MB/文件，保留 30 个）
+- [x] SECRET_KEY 已配置（默认值）
+
+| 簇 | 名称 | 状态 | 完成时间 | 通过测试数 |
+|----|------|------|----------|------------|
+| A | 数据库迁移 | ✅ | 2026-04-08 | 10 |
+| B | 变更冻结机制——后端 | ✅ | 2026-04-08 | 12 |
+| C | 里程碑收款绑定——后端 | ✅ | 2026-04-08 | 10 |
+| D | 项目关闭强制条件——后端 | ✅ | 2026-04-08 | 14 |
+| E | 前端联调 | ✅ | 2026-04-08 | 构建成功 |
+| F | 工时偏差记录 | ✅ | 2026-04-08 | 11 |
+| G | 全局重构 | ✅ | 2026-04-08 | 412 全量通过 |
+
+## v1.7 测试结果
+- 全量测试：**412 passed, 0 FAILED**
+- v1.7 专项测试：57 passed, 0 FAILED
+  - test_migration_v17.py: 10 passed
+  - test_change_freeze.py: 12 passed
+  - test_milestone_payment.py: 10 passed
+  - test_project_close.py: 14 passed
+  - test_work_hours.py: 11 passed
+
+## 前端实现
+- ✅ `frontend/src/api/v17.js` - v1.7 API 封装
+- ✅ `ChangeOrdersTab.vue` - 变更单管理 Tab
+- ✅ `MilestonePaymentTab.vue` - 里程碑收款 Tab
+- ✅ `WorkHoursTab.vue` - 工时记录 Tab
+- ✅ `Projects.vue` - 集成关闭项目功能
+- ✅ `Dashboard.vue` - 集成 WIP 看板
+- ✅ 前端构建成功：`✓ built in 1.65s`
+
+---
+
 # v1.6 执行进度
 
 ## 状态：执行中
