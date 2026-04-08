@@ -8,7 +8,7 @@ from app.models.changelog import ChangeLog
 from app.models.reminder import Reminder, ReminderSetting
 from app.models.file_index import FileIndex
 from app.models.setting import SystemSetting
-from app.models.quotation import Quotation
+from app.models.quotation import Quotation, QuotationItem, QuotationChange
 from app.models.customer_asset import CustomerAsset
 from app.models.requirement import Requirement, RequirementChange
 from app.models.change_order import ChangeOrder
@@ -32,6 +32,8 @@ __all__ = [
     "FileIndex",
     "SystemSetting",
     "Quotation",
+    "QuotationItem",
+    "QuotationChange",
     "CustomerAsset",
     "Requirement",
     "RequirementChange",

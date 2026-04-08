@@ -66,6 +66,7 @@ async def get_dashboard(db: AsyncSession = Depends(get_db), current_user: User =
 
     # Quotation conversion rate
     quotation_conversion_rate = 0.0
+    sent_this_month = 0
     try:
         from app.models.quotation import Quotation
         total_q = await db.execute(
@@ -84,6 +85,16 @@ async def get_dashboard(db: AsyncSession = Depends(get_db), current_user: User =
         accepted_q_count = accepted_q.scalar() or 0
         if total_q_count > 0:
             quotation_conversion_rate = round(accepted_q_count / total_q_count * 100, 2)
+
+        # 本月发出报价数
+        month_start = datetime(year, month, 1)
+        sent_q = await db.execute(
+            select(func.count(Quotation.id)).where(
+                Quotation.sent_at >= month_start,
+                Quotation.is_deleted == False,
+            )
+        )
+        sent_this_month = sent_q.scalar() or 0
     except Exception:
         pass
 
@@ -108,6 +119,7 @@ async def get_dashboard(db: AsyncSession = Depends(get_db), current_user: User =
         "customer_conversion_rate": round(conversion_rate, 2),
         "accounts_receivable": accounts_receivable,
         "quotation_conversion_rate": quotation_conversion_rate,
+        "sent_this_month": sent_this_month,
         "active_maintenance_count": active_maintenance_count,
     }
 

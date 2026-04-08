@@ -38,6 +38,7 @@ class ContractUpdate(BaseModel):
 class ContractResponse(ContractBase):
     id: int
     contract_no: str
+    quotation_id: Optional[int] = None
 
     class Config:
         from_attributes = True

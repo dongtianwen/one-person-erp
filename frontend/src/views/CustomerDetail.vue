@@ -158,6 +158,48 @@
             </el-table>
           </el-card>
         </el-tab-pane>
+        <el-tab-pane :label="'报价 (' + quotations.length + ')'" name="quotations">
+          <el-card>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
+              <el-select v-model="quoteStatusFilter" placeholder="状态筛选" clearable size="small" style="width: 130px" @change="loadQuotations">
+                <el-option v-for="(label, val) in quoteStatusLabels" :key="val" :label="label" :value="val" />
+              </el-select>
+              <el-button type="primary" size="small" @click="goCreateQuote">
+                <el-icon><Plus /></el-icon> 新建报价
+              </el-button>
+            </div>
+            <div v-if="!quotations.length" class="empty-hint">暂无报价记录</div>
+            <el-table v-else :data="quotations" size="small" style="width: 100%">
+              <el-table-column prop="quote_no" label="报价编号" width="160">
+                <template #default="{ row }">
+                  <span class="mono contract-no" style="cursor: pointer" @click="goToQuotation(row)">{{ row.quote_no }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="title" label="标题" min-width="140" />
+              <el-table-column prop="total_amount" label="总价" width="110" align="right">
+                <template #default="{ row }">
+                  <span class="mono">¥{{ Number(row.total_amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="status" label="状态" width="90">
+                <template #default="{ row }">
+                  <el-tag :type="quoteStatusTypes[row.status] || 'info'" size="small" round>{{ quoteStatusLabels[row.status] || row.status }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="valid_until" label="有效期" width="110">
+                <template #default="{ row }">
+                  <span class="mono" :style="{ color: row.status === 'expired' ? '#f43f5e' : '' }">{{ row.valid_until }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="80">
+                <template #default="{ row }">
+                  <el-button link type="primary" size="small" @click="goToQuotation(row)">查看</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-card>
+        </el-tab-pane>
+
         <el-tab-pane :label="'资产与托管记录 (' + assets.length + ')'" name="assets">
           <el-card>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
@@ -277,6 +319,7 @@ const loadData = async () => {
     contracts.value = data.contracts || []
     loadAssets()
     loadLtv()
+    loadQuotations()
   } catch {
     ElMessage.error('客户不存在或加载失败')
     router.back()
@@ -304,6 +347,31 @@ const loadLtv = async () => {
 }
 
 const assets = ref([])
+
+// Quotations Tab
+const quotations = ref([])
+const quoteStatusFilter = ref('')
+const quoteStatusLabels = { draft: '草稿', sent: '已发送', accepted: '已接受', rejected: '已拒绝', expired: '已过期', cancelled: '已取消' }
+const quoteStatusTypes = { draft: 'info', sent: 'primary', accepted: 'success', rejected: 'danger', expired: 'warning', cancelled: 'info' }
+
+const loadQuotations = async () => {
+  try {
+    const api = (await import('../api/quotations.js')).default || (await import('../api/index.js')).default
+    const { getQuotations } = await import('../api/quotations.js')
+    const params = { customer_id: route.params.id, limit: 50 }
+    if (quoteStatusFilter.value) params.status = quoteStatusFilter.value
+    const { data } = await getQuotations(params)
+    quotations.value = data.items || []
+  } catch { quotations.value = [] }
+}
+
+const goCreateQuote = () => {
+  router.push({ path: '/quotations', query: { customer_id: route.params.id } })
+}
+
+const goToQuotation = (row) => {
+  router.push('/quotations')
+}
 
 const loadAssets = async () => {
   try {

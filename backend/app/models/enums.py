@@ -81,3 +81,27 @@ class MaintenanceStatus(str, Enum):
     EXPIRED = "expired"
     RENEWED = "renewed"
     TERMINATED = "terminated"
+
+
+class QuoteStatus(str, Enum):
+    DRAFT = "draft"
+    SENT = "sent"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+    CANCELLED = "cancelled"
+
+
+class QuoteItemType(str, Enum):
+    LABOR = "labor"
+    DESIGN = "design"
+    TESTING = "testing"
+    DEPLOYMENT = "deployment"
+    OUTSOURCE = "outsource"
+    OTHER = "other"
+
+
+class QuoteChangeType(str, Enum):
+    FIELD_UPDATE = "field_update"
+    STATUS_CHANGE = "status_change"
+    CONVERTED = "converted"

@@ -52,3 +52,20 @@ CHANGE_ORDER_VALID_TRANSITIONS: dict[str, list[str]] = {
 
 # ── 密码字段检测规则（仅检测字段名，不扫描字段值）────────────────
 FORBIDDEN_FIELD_PATTERNS = ["password", "pwd", "secret", "passwd", "token"]
+
+# ── v1.6 报价模块 ───────────────────────────────────────────
+QUOTE_NO_PREFIX: str = "BJ"  # 报价单编号前缀
+QUOTE_VALID_DAYS_DEFAULT: int = 30  # 默认报价有效期天数
+QUOTE_DECIMAL_PLACES: int = 2  # 金额精度
+QUOTE_ESTIMATE_MAX_DAYS: int = 365  # 单个报价允许的最大预计工期
+QUOTE_EXPIRE_WINDOW_DAYS: int = 0  # 过期判定窗口（0 = 严格按 valid_until < 今日）
+
+# 报价状态流转白名单（expired 仅由事件驱动设置，不接受接口直接传入）
+QUOTE_VALID_TRANSITIONS: dict[str, list[str]] = {
+    "draft": ["sent", "accepted", "cancelled"],
+    "sent": ["accepted", "rejected", "cancelled"],
+    "accepted": [],
+    "rejected": [],
+    "expired": [],
+    "cancelled": [],
+}

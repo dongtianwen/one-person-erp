@@ -382,7 +382,7 @@ import { getDashboard, getCustomerFunnel, getProjectStatus, getTodos, getRevenue
 const functor = ref(null)
 const router = useRouter()
 
-const metrics = ref({ monthly_income: 0, monthly_expense: 0, monthly_profit: 0, active_projects: 0, customer_conversion_rate: 0, quotation_conversion_rate: 0 })
+const metrics = ref({ monthly_income: 0, monthly_expense: 0, monthly_profit: 0, active_projects: 0, customer_conversion_rate: 0, quotation_conversion_rate: 0, sent_this_month: 0 })
 const funnel = ref({})
 const projectStatus = ref({})
 const todos = ref({ tasks: [], expiring_contracts: [], reminders: [] })
@@ -405,6 +405,7 @@ const metricCards = computed(() => [
   { key: 'profit', label: '本月利润', value: metrics.value.monthly_profit, prefix: '¥', color: metrics.value.monthly_profit >= 0 ? '#06b6d4' : '#f43f5e', glow: metrics.value.monthly_profit >= 0 ? 'rgba(6, 182, 212, 0.12)' : 'rgba(244, 63, 94, 0.10)', icon: Coin },
   { key: 'projects', label: '进行中项目', value: metrics.value.active_projects, prefix: '', color: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.12)', icon: DataBoard },
   { key: 'quotation_rate', label: '报价转化率', value: metrics.value.quotation_conversion_rate || 0, prefix: '', suffix: '%', color: '#f59e0b', glow: 'rgba(245, 158, 11, 0.12)', icon: Tickets },
+  { key: 'sent_this_month', label: '本月发出报价', value: metrics.value.sent_this_month || 0, prefix: '', color: '#06b6d4', glow: 'rgba(6, 182, 212, 0.12)', icon: Tickets },
 ])
 
 const funnelItems = computed(() => {
@@ -543,10 +544,12 @@ const loadBackups = async () => {
 }
 
 const goToCard = (key) => {
-  if (['projects', 'quotation_rate'].includes(key)) {
-    router.push('/projects')
-  } else {
+  if (['projects', 'quotation_rate', 'sent_this_month'].includes(key)) {
+    router.push('/quotations')
+  } else if (['income', 'expense', 'profit'].includes(key)) {
     router.push('/finances')
+  } else {
+    router.push('/projects')
   }
 }
 

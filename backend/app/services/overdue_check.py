@@ -1,6 +1,7 @@
 import logging
 import time
-from datetime import date, timedelta
+import json
+from datetime import date, datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import select, func
@@ -8,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.reminder import Reminder
 from app.models.file_index import FileIndex
-from app.models.quotation import Quotation
+from app.models.quotation import Quotation, QuotationChange
 from app.models.customer_asset import CustomerAsset
 from app.models.maintenance import MaintenancePeriod
 from app.core.constants import MAINTENANCE_REMINDER_DAYS_BEFORE
@@ -51,19 +52,32 @@ async def _check_overdue_reminders(db: AsyncSession, mode: str, today: date) -> 
 
 
 async def _check_expired_quotations(db: AsyncSession, mode: str, today: date) -> int:
-    """Check 2: Expired quotations (draft/sent -> expired)."""
+    """Check 2: Expired quotations (sent -> expired only, with change log)."""
     q_query = select(Quotation).where(
-        Quotation.status.in_(["draft", "sent"]),
-        Quotation.validity_date < today,
+        Quotation.status == "sent",
+        Quotation.valid_until < today,
         Quotation.is_deleted == False,
     )
     q_query = _apply_throttle(q_query, mode)
 
     q_result = await db.execute(q_query)
     expired_quotations = q_result.scalars().all()
+    now = datetime.utcnow()
     for q in expired_quotations:
+        before = {"status": q.status}
         q.status = "expired"
+        q.expired_at = now
         db.add(q)
+        # 写入变更日志
+        after = {"status": "expired", "expired_at": now.isoformat()}
+        change = QuotationChange(
+            quotation_id=q.id,
+            change_type="status_change",
+            before_snapshot=json.dumps(before, ensure_ascii=False),
+            after_snapshot=json.dumps(after, ensure_ascii=False),
+            created_at=now,
+        )
+        db.add(change)
     return len(expired_quotations)
 
 

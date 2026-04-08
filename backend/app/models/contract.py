@@ -22,6 +22,9 @@ class Contract(Base, TimestampMixin):
     expected_payment_date = Column(Date, nullable=True)
     payment_stage_note = Column(String(200), nullable=True)
 
+    # v1.6 报价转合同反查
+    quotation_id = Column(Integer, ForeignKey("quotations.id", ondelete="SET NULL"), nullable=True)
+
     customer = relationship("Customer", back_populates="contracts")
     project = relationship("Project", back_populates="contracts")
     finance_records = relationship("FinanceRecord", back_populates="contract", cascade="all, delete-orphan")
