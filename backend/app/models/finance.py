@@ -36,6 +36,13 @@ class FinanceRecord(Base, TimestampMixin):
     # v1.4 项目利润核算字段
     related_project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
 
+    # v1.8 财务导出与对账字段
+    invoice_id = Column(Integer, ForeignKey("invoices.id", ondelete="SET NULL"), nullable=True)
+    accounting_period = Column(String(7), nullable=True)
+    export_batch_id = Column(Integer, ForeignKey("export_batches.id", ondelete="SET NULL"), nullable=True)
+    reconciliation_status = Column(String(20), nullable=True, default="pending")
+
     contract = relationship("Contract", back_populates="finance_records")
     related_project = relationship("Project", foreign_keys=[related_project_id])
     related_record = relationship("FinanceRecord", foreign_keys=[related_record_id], remote_side="FinanceRecord.id")
+    invoice = relationship("Invoice", foreign_keys=[invoice_id])

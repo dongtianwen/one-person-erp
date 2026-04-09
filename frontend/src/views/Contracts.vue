@@ -148,6 +148,10 @@
         </div>
       </div>
       <el-tabs v-model="contractDetailTab">
+        <!-- v1.8 发票 Tab -->
+        <el-tab-pane label="发票" name="invoices">
+          <InvoicesTab v-if="showContractDetail" :contract-id="detailContract?.id" :contract-amount="detailContract?.amount || 0" />
+        </el-tab-pane>
         <el-tab-pane label="变更单" name="change-orders">
           <!-- 金额合计 -->
           <div v-if="changeOrderSummary" class="co-summary">
@@ -209,6 +213,7 @@ import api from '../api'
 import { getCustomers } from '../api/customers'
 import { getProjects } from '../api/projects'
 import { getChangeOrders, createChangeOrder, patchChangeOrder, getChangeOrderDetail } from '../api/changeOrders'
+import InvoicesTab from './contract-tabs/InvoicesTab.vue'
 
 const contracts = ref([])
 const customers = ref([])

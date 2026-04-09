@@ -120,3 +120,35 @@ async def delete_contract(
 
     await contract_crud.contract.remove(db, contract_id)
     return {"message": "合同已删除"}
+
+
+@router.get("/{contract_id}/invoices")
+async def get_contract_invoices(
+    contract_id: int,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """获取合同关联的发票列表。"""
+    from app.crud.invoice import invoice as invoice_crud
+
+    # 验证合同存在
+    contract = await contract_crud.contract.get(db, contract_id)
+    if not contract:
+        raise HTTPException(status_code=404, detail="合同不存在")
+
+    items, total = await invoice_crud.list(
+        db,
+        skip=skip,
+        limit=limit,
+        contract_id=contract_id,
+    )
+
+    from app.schemas.invoice import InvoiceContractResponse
+    return {
+        "items": [InvoiceContractResponse.model_validate(i) for i in items],
+        "total": total,
+        "page": (skip // limit) + 1,
+        "page_size": limit,
+    }

@@ -1,3 +1,39 @@
+# v1.8 执行进度
+
+## 状态：执行中
+## 开始时间：2026-04-09
+
+| 簇 | 名称 | 状态 | 完成时间 | 通过测试数 |
+|----|------|------|----------|------------|
+| 0 | 前置检查 | ✅ | 2026-04-09 | - |
+| A | 数据库迁移 | ✅ | 2026-04-09 | 23 |
+| B | 发票台账管理——后端 | ✅ | 2026-04-09 | 25 |
+| C | 财务数据导出——后端 | ✅ | 2026-04-09 | 20 |
+| D | 会计期间对账——后端 | ✅ | 2026-04-09 | 10 |
+| E | 前端联调 | ✅ | 2026-04-09 | 构建成功 |
+| F | 全局重构 | ✅ | 2026-04-09 | 490 全量通过 |
+
+## 迁移前快照
+
+### finance_records 表
+- 记录数: 42
+- 列数: 25
+- 现有字段: contract_id, type, amount, category, description, date, invoice_no, status, id, created_at, updated_at, is_deleted, funding_source, business_note, related_record_id, related_note, settlement_status, outsource_name, has_invoice, tax_treatment, invoice_direction, invoice_type, tax_rate, tax_amount, related_project_id
+- 样本 IDs: [1, 2, 3]
+
+### contracts 表
+- 记录数: 20
+
+## 执行日志
+
+### 2026-04-09
+- 前置检查完成
+  - ✓ 数据库表验证通过 (所有 17 个必需表存在)
+  - ✓ logs/ 目录配置正确 (10MB/文件, 30个备份)
+  - ✓ .env 文件已创建, SECRET_KEY 已配置
+
+---
+
 # v1.7 执行进度
 
 ## 状态：✅ 全部完成（后端 + 前端）

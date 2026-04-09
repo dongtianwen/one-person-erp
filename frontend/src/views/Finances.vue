@@ -184,6 +184,143 @@
             <span>暂无发票记录</span>
           </div>
         </el-tab-pane>
+
+        <!-- v1.8 数据导出 Tab -->
+        <el-tab-pane label="数据导出" name="export">
+          <div class="export-section">
+            <div class="export-form-card">
+              <h3>创建导出批次</h3>
+              <el-form :model="exportForm" label-position="top" style="max-width: 500px">
+                <el-form-item label="导出类型">
+                  <el-select v-model="exportForm.export_type" style="width: 100%">
+                    <el-option label="合同数据" value="contracts" />
+                    <el-option label="收款数据" value="payments" />
+                    <el-option label="发票数据" value="invoices" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="时间范围">
+                  <el-date-picker
+                    v-model="exportDateRange"
+                    type="daterange"
+                    value-format="YYYY-MM-DD"
+                    start-placeholder="开始日期"
+                    end-placeholder="结束日期"
+                    style="width: 100%"
+                  />
+                </el-form-item>
+                <el-form-item label="目标格式">
+                  <el-select v-model="exportForm.target_format" style="width: 100%">
+                    <el-option label="通用格式" value="generic" />
+                    <el-option label="金蝶 K3" value="kingdee_k3" disabled />
+                    <el-option label="用友 U8" value="yonyou_u8" disabled />
+                  </el-select>
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" @click="handleCreateExport" :loading="exportLoading">创建导出批次</el-button>
+                </el-form-item>
+              </el-form>
+            </div>
+
+            <div class="export-history">
+              <h3>导出历史</h3>
+              <el-table :data="exportBatches" style="width: 100%" v-loading="exportLoading" size="small">
+                <el-table-column prop="batch_id" label="批次号" width="180">
+                  <template #default="{ row }"><span class="mono">{{ row.batch_id }}</span></template>
+                </el-table-column>
+                <el-table-column prop="export_type" label="类型" width="100" />
+                <el-table-column prop="record_count" label="记录数" width="80" align="right">
+                  <template #default="{ row }"><span class="mono">{{ row.record_count || 0 }}</span></template>
+                </el-table-column>
+                <el-table-column prop="target_format" label="格式" width="100" />
+                <el-table-column prop="created_at" label="创建时间" width="160" />
+                <el-table-column label="操作" width="100">
+                  <template #default="{ row }">
+                    <el-button link type="primary" size="small" @click="handleDownload(row)">下载</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div v-if="!exportBatches.length && !exportLoading" class="empty-hint">暂无导出记录</div>
+            </div>
+          </div>
+        </el-tab-pane>
+
+        <!-- v1.8 对账报表 Tab -->
+        <el-tab-pane label="对账报表" name="reconciliation">
+          <div class="reconciliation-section">
+            <div class="period-selector">
+              <span class="period-label">会计期间：</span>
+              <el-select v-model="selectedPeriod" placeholder="选择期间" @change="loadReconciliationReport" style="width: 180px">
+                <el-option v-for="p in availablePeriods" :key="p" :label="p" :value="p" />
+              </el-select>
+              <el-button type="primary" size="small" @click="handleSyncReconciliation" :loading="syncLoading">同步对账状态</el-button>
+            </div>
+
+            <div v-if="reconciliationReport" class="reconciliation-content">
+              <div class="balance-cards">
+                <div class="balance-card">
+                  <span class="card-label">期初余额</span>
+                  <span class="card-value mono">¥{{ (reconciliationReport.opening_balance?.total || 0).toFixed(2) }}</span>
+                  <div class="card-detail">
+                    <span>应收: {{ (reconciliationReport.opening_balance?.accounts_receivable || 0).toFixed(2) }}</span>
+                    <span>未开票: {{ (reconciliationReport.opening_balance?.unbilled_amount || 0).toFixed(2) }}</span>
+                  </div>
+                </div>
+                <div class="balance-card">
+                  <span class="card-label">本期活动</span>
+                  <span class="card-value highlight mono">¥{{ ((reconciliationReport.current_period?.contracts_amount || 0) - (reconciliationReport.current_period?.payments_amount || 0)).toFixed(2) }}</span>
+                  <div class="card-detail">
+                    <span>合同: {{ (reconciliationReport.current_period?.contracts_amount || 0).toFixed(2) }}</span>
+                    <span>收款: {{ (reconciliationReport.current_period?.payments_amount || 0).toFixed(2) }}</span>
+                    <span>开票: {{ (reconciliationReport.current_period?.invoices_amount || 0).toFixed(2) }}</span>
+                  </div>
+                </div>
+                <div class="balance-card">
+                  <span class="card-label">期末余额</span>
+                  <span class="card-value primary mono">¥{{ (reconciliationReport.closing_balance?.total || 0).toFixed(2) }}</span>
+                  <div class="card-detail">
+                    <span>应收: {{ (reconciliationReport.closing_balance?.accounts_receivable || 0).toFixed(2) }}</span>
+                    <span>未开票: {{ (reconciliationReport.closing_balance?.unbilled_amount || 0).toFixed(2) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="breakdown-section">
+                <h4>客户维度分解</h4>
+                <el-table :data="reconciliationReport.breakdown || []" style="width: 100%" size="small">
+                  <el-table-column prop="customer_name" label="客户名称" width="150" />
+                  <el-table-column label="本期合同" width="120" align="right">
+                    <template #default="{ row }"><span class="mono">¥{{ (row.contracts_amount_this_period || 0).toFixed(2) }}</span></template>
+                  </el-table-column>
+                  <el-table-column label="本期收款" width="120" align="right">
+                    <template #default="{ row }"><span class="mono">¥{{ (row.payments_amount_this_period || 0).toFixed(2) }}</span></template>
+                  </el-table-column>
+                  <el-table-column label="本期开票" width="120" align="right">
+                    <template #default="{ row }"><span class="mono">¥{{ (row.invoices_amount_this_period || 0).toFixed(2) }}</span></template>
+                  </el-table-column>
+                  <el-table-column label="应收余额" width="120" align="right">
+                    <template #default="{ row }"><span class="mono">{{ (row.accounts_receivable || 0).toFixed(2) }}</span></template>
+                  </el-table-column>
+                </el-table>
+              </div>
+
+              <div v-if="reconciliationReport.unreconciled_records?.length" class="unreconciled-section">
+                <h4>未对账记录</h4>
+                <el-table :data="reconciliationReport.unreconciled_records" style="width: 100%" size="small">
+                  <el-table-column prop="date" label="日期" width="100" />
+                  <el-table-column prop="type" label="类型" width="60">
+                    <template #default="{ row }">{{ row.type === 'income' ? '收' : '支' }}</template>
+                  </el-table-column>
+                  <el-table-column prop="amount" label="金额" width="100" align="right">
+                    <template #default="{ row }"><span class="mono">¥{{ (row.amount || 0).toFixed(2) }}</span></template>
+                  </el-table-column>
+                  <el-table-column prop="description" label="描述" min-width="150" />
+                  <el-table-column prop="reason" label="原因" width="120" />
+                </el-table>
+              </div>
+            </div>
+            <div v-else-if="!reconciliationLoading" class="empty-hint">请选择会计期间查看对账报表</div>
+          </div>
+        </el-tab-pane>
       </el-tabs>
     </el-card>
 
@@ -339,6 +476,14 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
 import api from '../api'
+import {
+  createExportBatch,
+  getExportBatches,
+  downloadExportFile as apiDownloadExportFile,
+  getReconciliationPeriods,
+  getReconciliationReport as apiGetReconciliationReport,
+  syncReconciliationStatus
+} from '../api/v18'
 
 const records = ref([])
 const fundingStats = ref({ funding_sources: {}, unclosed_advances: 0, unclosed_loans: 0 })
@@ -365,6 +510,19 @@ const invoiceYearFilter = ref(new Date().getFullYear())
 const invoiceQuarterFilter = ref(null)
 const invoiceYearOptions = [2024, 2025, 2026, 2027]
 const invoiceTypeLabels = { special: '增值税专用', general: '增值税普通', electronic: '电子发票' }
+
+// v1.8 数据导出
+const exportForm = ref({ export_type: 'contracts', target_format: 'generic' })
+const exportDateRange = ref([])
+const exportBatches = ref([])
+const exportLoading = ref(false)
+
+// v1.8 对账报表
+const availablePeriods = ref([])
+const selectedPeriod = ref(null)
+const reconciliationReport = ref(null)
+const reconciliationLoading = ref(false)
+const syncLoading = ref(false)
 
 const loadInvoiceLedger = async () => {
   invoiceLoading.value = true
@@ -545,7 +703,95 @@ const handleSubmit = async () => {
   } catch { /* handled */ }
 }
 
-onMounted(() => { loadData(); loadContracts(); loadProjects(); loadFundingStats(); loadInvoiceLedger() })
+// v1.8 数据导出
+const loadExportBatches = async () => {
+  try {
+    const { data } = await getExportBatches({ skip: 0, limit: 20 })
+    exportBatches.value = data.items || data
+  } catch (err) {
+    console.error('Failed to load export batches:', err)
+  }
+}
+
+const handleCreateExport = async () => {
+  if (!exportDateRange.value || exportDateRange.value.length !== 2) {
+    ElMessage.warning('请选择时间范围')
+    return
+  }
+  exportLoading.value = true
+  try {
+    await createExportBatch({
+      export_type: exportForm.value.export_type,
+      start_date: exportDateRange.value[0],
+      end_date: exportDateRange.value[1],
+      target_format: exportForm.value.target_format
+    })
+    ElMessage.success('导出批次已创建')
+    loadExportBatches()
+  } catch (err) {
+    console.error('Failed to create export:', err)
+  } finally {
+    exportLoading.value = false
+  }
+}
+
+const handleDownload = async (row) => {
+  try {
+    const blob = await apiDownloadExportFile(row.batch_id)
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${row.batch_id}.xlsx`
+    a.click()
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('下载已开始')
+  } catch (err) {
+    console.error('Failed to download:', err)
+    ElMessage.error('下载失败')
+  }
+}
+
+// v1.8 对账报表
+const loadReconciliationPeriods = async () => {
+  try {
+    const { data } = await getReconciliationPeriods()
+    availablePeriods.value = data.periods || []
+    if (availablePeriods.value.length) {
+      selectedPeriod.value = availablePeriods.value[0]
+      loadReconciliationReport()
+    }
+  } catch (err) {
+    console.error('Failed to load periods:', err)
+  }
+}
+
+const loadReconciliationReport = async () => {
+  if (!selectedPeriod.value) return
+  reconciliationLoading.value = true
+  try {
+    const { data } = await apiGetReconciliationReport(selectedPeriod.value)
+    reconciliationReport.value = data
+  } catch (err) {
+    console.error('Failed to load report:', err)
+  } finally {
+    reconciliationLoading.value = false
+  }
+}
+
+const handleSyncReconciliation = async () => {
+  syncLoading.value = true
+  try {
+    const { data } = await syncReconciliationStatus([])
+    ElMessage.success(`已同步 ${data.updated_count || 0} 条记录`)
+    loadReconciliationReport()
+  } catch (err) {
+    console.error('Failed to sync:', err)
+  } finally {
+    syncLoading.value = false
+  }
+}
+
+onMounted(() => { loadData(); loadContracts(); loadProjects(); loadFundingStats(); loadInvoiceLedger(); loadExportBatches(); loadReconciliationPeriods() })
 </script>
 
 <style scoped>
@@ -759,5 +1005,104 @@ onMounted(() => { loadData(); loadContracts(); loadProjects(); loadFundingStats(
   padding: 32px 0;
   color: var(--text-tertiary);
   font-size: 13px;
+}
+
+/* v1.8 Export Section */
+.export-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.export-form-card h3, .export-history h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+/* v1.8 Reconciliation Section */
+.reconciliation-section {
+  padding: 0;
+}
+
+.period-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.period-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.reconciliation-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.balance-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.balance-card {
+  padding: 16px;
+  background: var(--el-fill-color-lighter);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.card-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.card-value.highlight {
+  color: var(--el-color-warning);
+}
+
+.card-value.primary {
+  color: var(--el-color-primary);
+}
+
+.card-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.breakdown-section h4, .unreconciled-section h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.empty-hint {
+  color: #999;
+  text-align: center;
+  padding: 24px;
+}
+
+.mono {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
 }
 </style>

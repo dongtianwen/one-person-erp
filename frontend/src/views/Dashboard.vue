@@ -448,6 +448,8 @@ const functor = ref(null)
 const router = useRouter()
 
 const metrics = ref({ monthly_income: 0, monthly_expense: 0, monthly_profit: 0, active_projects: 0, customer_conversion_rate: 0, quotation_conversion_rate: 0, sent_this_month: 0 })
+// v1.8 财务指标
+const financialMetrics = ref({ monthly_invoiced: 0, monthly_received: 0, accounts_receivable: 0, unbilled_amount: 0 })
 const funnel = ref({})
 const projectStatus = ref({})
 const todos = ref({ tasks: [], expiring_contracts: [], reminders: [] })
@@ -475,6 +477,11 @@ const metricCards = computed(() => [
   { key: 'projects', label: '进行中项目', value: metrics.value.active_projects, prefix: '', color: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.12)', icon: DataBoard },
   { key: 'quotation_rate', label: '报价转化率', value: metrics.value.quotation_conversion_rate || 0, prefix: '', suffix: '%', color: '#f59e0b', glow: 'rgba(245, 158, 11, 0.12)', icon: Tickets },
   { key: 'sent_this_month', label: '本月发出报价', value: metrics.value.sent_this_month || 0, prefix: '', color: '#06b6d4', glow: 'rgba(6, 182, 212, 0.12)', icon: Tickets },
+  // v1.8 财务指标
+  { key: 'monthly_invoiced', label: '本月开票', value: financialMetrics.value.monthly_invoiced, prefix: '¥', color: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.12)', icon: Tickets },
+  { key: 'monthly_received', label: '本月收款', value: financialMetrics.value.monthly_received, prefix: '¥', color: '#10b981', glow: 'rgba(16, 185, 129, 0.12)', icon: Wallet },
+  { key: 'accounts_receivable', label: '应收账款', value: financialMetrics.value.accounts_receivable, prefix: '¥', color: '#f59e0b', glow: 'rgba(245, 158, 11, 0.12)', icon: Coin },
+  { key: 'unbilled_amount', label: '未开票金额', value: financialMetrics.value.unbilled_amount, prefix: '¥', color: '#06b6d4', glow: 'rgba(6, 182, 212, 0.12)', icon: DataBoard },
 ])
 
 const funnelItems = computed(() => {
@@ -543,6 +550,42 @@ const loadData = async () => {
     todos.value = todosRes.data
     revenueTrend.value = trendRes.data || []
   } catch { /* silently degrade */ }
+}
+
+// v1.8 加载财务指标
+const loadFinancialMetrics = async () => {
+  try {
+    const { getInvoiceSummary } = await import('../api/v18')
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const period = `${year}-${month}`
+
+    // 获取本月发票汇总
+    const summary = await getInvoiceSummary({ accounting_period: period })
+    const monthlyInvoiced = (summary.verified?.total_amount || 0) + (summary.received?.total_amount || 0) + (summary.issued?.total_amount || 0)
+
+    // 获取收款数据（从 dashboard metrics）
+    const monthlyReceived = metrics.value.monthly_income || 0
+
+    // 计算应收账款（合同总额 - 已收款）
+    const accountsReceivable = Math.max(0, (metrics.value.total_contract_amount || 0) - (metrics.value.total_received || 0))
+
+    // 计算未开票金额（合同总额 - 已开票）
+    const totalInvoiced = (summary.verified?.total_amount || 0) + (summary.received?.total_amount || 0) + (summary.issued?.total_amount || 0) + (summary.draft?.total_amount || 0)
+    const unbilledAmount = Math.max(0, (metrics.value.total_contract_amount || 0) - Number(totalInvoiced))
+
+    financialMetrics.value = {
+      monthly_invoiced: Number(monthlyInvoiced) || 0,
+      monthly_received: monthlyReceived,
+      accounts_receivable: accountsReceivable,
+      unbilled_amount: unbilledAmount
+    }
+  } catch (err) {
+    console.error('Failed to load financial metrics:', err)
+    // 默认值
+    financialMetrics.value = { monthly_invoiced: 0, monthly_received: 0, accounts_receivable: 0, unbilled_amount: 0 }
+  }
 }
 
 // v1.7 加载 WIP 项目
@@ -667,7 +710,7 @@ const formatFileSize = (bytes) => {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-onMounted(() => { loadData(); loadBackups(); loadCashflowForecast(); loadTaxSummary(); loadWipProjects() })
+onMounted(() => { loadData(); loadBackups(); loadCashflowForecast(); loadTaxSummary(); loadWipProjects(); loadFinancialMetrics() })
 </script>
 
 <style scoped>

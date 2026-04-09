@@ -149,3 +149,28 @@ class AssetType(str, Enum):
     MINIPROGRAM = "miniprogram"  # 小程序
     APP = "app"                  # APP
     OTHER = "other"              # 其他
+
+
+# v1.8 财务对接模块枚举
+class InvoiceType(str, Enum):
+    """发票类型枚举"""
+    STANDARD = "standard"        # 增值税专用发票
+    ORDINARY = "ordinary"        # 增值税普通发票
+    ELECTRONIC = "electronic"    # 电子发票
+    SMALL_SCALE = "small_scale"  # 小规模纳税人
+
+
+class InvoiceStatus(str, Enum):
+    """发票状态枚举"""
+    DRAFT = "draft"            # 草稿
+    ISSUED = "issued"          # 已开具
+    RECEIVED = "received"      # 已收票
+    VERIFIED = "verified"      # 已核销（终态）
+    CANCELLED = "cancelled"    # 已作废（终态）
+
+
+class ReconciliationStatus(str, Enum):
+    """对账状态枚举"""
+    PENDING = "pending"        # 待对账
+    MATCHED = "matched"        # 已匹配
+    VERIFIED = "verified"      # 已确认（终态）

@@ -16,6 +16,8 @@ from app.models.acceptance import Acceptance
 from app.models.deliverable import Deliverable, AccountHandover
 from app.models.release import Release
 from app.models.maintenance import MaintenancePeriod
+from app.models.invoice import Invoice
+from app.models.export_batch import ExportBatch
 
 __all__ = [
     "Base",
@@ -43,4 +45,6 @@ __all__ = [
     "AccountHandover",
     "Release",
     "MaintenancePeriod",
+    "Invoice",
+    "ExportBatch",
 ]

@@ -21,6 +21,8 @@ from app.api.endpoints import (
     customer_assets,
     cashflow,
     exports,
+    finance_export,
+    reconciliation,
     requirements,
     acceptances,
     deliverables,
@@ -28,6 +30,7 @@ from app.api.endpoints import (
     change_orders,
     project_change_orders,
     maintenance,
+    invoices,
 )
 from app.database import async_session
 from app.api.endpoints.auth import create_default_admin
@@ -122,15 +125,13 @@ app.include_router(file_indexes.router, prefix="/api/v1/file-indexes", tags=["�
 app.include_router(quotations.router, prefix="/api/v1/quotations", tags=["报价单管理"])
 app.include_router(customer_assets.router, prefix="/api/v1/customers/{customer_id}/assets", tags=["客户资产"])
 app.include_router(cashflow.router, prefix="/api/v1/cashflow", tags=["现金流预测"])
-# Debug: Check if exports router has routes
-if hasattr(exports.router, 'routes') and exports.router.routes:
-    logger.info(f"Exports router has {len(exports.router.routes)} route(s)")
-    for route in exports.router.routes:
-        logger.info(f"  Route: {route.path}")
-else:
-    logger.warning("Exports router has no routes")
-
+app.include_router(invoices.router, prefix="/api/v1/invoices", tags=["发票管理"])
+# v1.4 数据导出
 app.include_router(exports.router, prefix="/api/v1/export", tags=["数据导出"])
+# v1.8 财务导出
+app.include_router(finance_export.router, prefix="/api/v1/finance/export", tags=["财务导出"])
+# v1.8 对账
+app.include_router(reconciliation.router, prefix="/api/v1/finance/reconciliation", tags=["对账管理"])
 app.include_router(requirements.router, prefix="/api/v1/projects/{project_id}/requirements", tags=["需求管理"])
 app.include_router(acceptances.router, prefix="/api/v1/projects/{project_id}/acceptances", tags=["验收管理"])
 app.include_router(deliverables.router, prefix="/api/v1/projects/{project_id}/deliverables", tags=["交付物管理"])

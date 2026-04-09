@@ -15,7 +15,13 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 
-from app.core.constants import EXPORT_DATE_FORMAT, EXPORT_MAX_ROWS_PER_SHEET
+from app.core.constants import (
+    EXPORT_DATE_FORMAT,
+    EXPORT_MAX_ROWS_PER_SHEET,
+    ACCOUNTING_PERIOD_FORMAT,
+    EXPORT_DECIMAL_PLACES,
+    EXPORT_FORMAT_SUPPORTED,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -389,3 +395,456 @@ def _write_tax_ledger_pdf(
             f"应纳税额：{summary.get('payable_tax', 0)}"
         )
         elements.append(Paragraph(summary_text, cell_style))
+
+
+# ── v1.8 财务对接导出功能 ────────────────────────────────────────
+
+import os
+import random
+import string
+from pathlib import Path
+from typing import Any
+from decimal import Decimal
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.constants import (
+    ACCOUNTING_PERIOD_FORMAT,
+    EXPORT_DECIMAL_PLACES,
+    EXPORT_FORMAT_SUPPORTED,
+)
+from app.models.contract import Contract
+from app.models.export_batch import ExportBatch
+from app.models.finance import FinanceRecord
+from app.models.invoice import Invoice
+from app.models.quotation import Quotation
+from app.models.customer import Customer
+
+# 导出目录
+V18_EXPORT_DIR = Path(__file__).parent.parent.parent / "exports"
+
+
+def generate_export_batch_id() -> str:
+    """生成唯一批次 ID（v1.8）。
+
+    格式：EXP-YYYYMMDD-HHMMSS-随机6位
+    """
+    now = datetime.now()
+    date_part = now.strftime("%Y%m%d")
+    time_part = now.strftime("%H%M%S")
+    random_part = "".join(random.choices(string.digits, k=6))
+    return f"EXP-{date_part}-{time_part}-{random_part}"
+
+
+def calculate_accounting_period(d: date) -> str:
+    """计算会计期间（v1.8）。
+
+    Args:
+        d: 日期对象
+
+    Returns:
+        YYYY-MM 格式的会计期间字符串
+    """
+    return d.strftime(ACCOUNTING_PERIOD_FORMAT)
+
+
+def get_period_date_range(accounting_period: str) -> tuple[date, date]:
+    """根据会计期间获取日期范围（v1.8）。
+
+    Args:
+        accounting_period: YYYY-MM 格式字符串
+
+    Returns:
+        (start_date, end_date) 元组
+    """
+    year, month = map(int, accounting_period.split("-"))
+
+    # 月初
+    start_date = date(year, month, 1)
+
+    # 月末
+    if month == 12:
+        end_date = date(year + 1, 1, 1) - __import__('datetime').timedelta(days=1)
+    else:
+        end_date = date(year, month + 1, 1) - __import__('datetime').timedelta(days=1)
+
+    return start_date, end_date
+
+
+def map_to_finance_format(
+    data: list[dict[str, Any]],
+    target_format: str,
+    export_type: str,
+) -> list[dict[str, Any]]:
+    """将数据映射为目标财务格式（v1.8）。
+
+    Args:
+        data: 原始数据列表
+        target_format: 目标格式（generic/kingdee/yoyo/chanjet）
+        export_type: 导出类型（contracts/payments/invoices）
+
+    Returns:
+        映射后的数据列表
+
+    Raises:
+        NotImplementedError: 当 target_format 不是 generic 时
+    """
+    if target_format not in EXPORT_FORMAT_SUPPORTED:
+        raise NotImplementedError(
+            f"导出格式 '{target_format}' 暂未实现，本版本仅支持: {EXPORT_FORMAT_SUPPORTED}"
+        )
+
+    # generic 格式直接返回原始数据（已经按目标字段组织）
+    return data
+
+
+def _format_export_value(value: Any, decimal_places: int = EXPORT_DECIMAL_PLACES) -> Any:
+    """格式化导出值（v1.8）。
+
+    - Decimal 转为保留指定位数的 float
+    - date 转为字符串
+    - None 转为空字符串
+    """
+    if value is None:
+        return ""
+    if isinstance(value, Decimal):
+        return float(round(value, decimal_places))
+    if isinstance(value, date):
+        return value.strftime(EXPORT_DATE_FORMAT)
+    if isinstance(value, bool):
+        return "是" if value else "否"
+    return value
+
+
+async def _fetch_contracts_data(
+    db: AsyncSession,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> list[dict[str, Any]]:
+    """获取合同导出数据（v1.8）。"""
+    stmt = (
+        select(
+            Contract.contract_no,
+            Contract.title,
+            Contract.amount,
+            Contract.signed_date,
+            Customer.name.label("customer_name"),
+            Quotation.quote_no,
+        )
+        .join(Customer, Contract.customer_id == Customer.id)
+        .outerjoin(Quotation, Contract.quotation_id == Quotation.id)
+    )
+
+    if start_date:
+        stmt = stmt.where(Contract.signed_date >= start_date)
+    if end_date:
+        stmt = stmt.where(Contract.signed_date <= end_date)
+
+    stmt = stmt.order_by(Contract.signed_date.desc())
+
+    result = await db.execute(stmt)
+    rows = result.fetchall()
+
+    data = []
+    for row in rows:
+        data.append({
+            "合同编号": row.contract_no,
+            "合同名称": row.title,
+            "客户名称": row.customer_name,
+            "合同金额": _format_export_value(row.amount),
+            "签订日期": _format_export_value(row.signed_date),
+            "会计期间": calculate_accounting_period(row.signed_date) if row.signed_date else "",
+            "关联报价单": row.quote_no or "",
+        })
+
+    return data
+
+
+async def _fetch_payments_data(
+    db: AsyncSession,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    accounting_period: str | None = None,
+) -> list[dict[str, Any]]:
+    """获取收款导出数据（v1.8）。"""
+    stmt = (
+        select(
+            FinanceRecord.id,
+            FinanceRecord.date,
+            FinanceRecord.amount,
+            FinanceRecord.category,
+            FinanceRecord.description,
+            FinanceRecord.accounting_period,
+            FinanceRecord.reconciliation_status,
+            Customer.name.label("customer_name"),
+            Contract.contract_no,
+            Invoice.invoice_no,
+        )
+        .outerjoin(Contract, FinanceRecord.contract_id == Contract.id)
+        .outerjoin(Customer, Contract.customer_id == Customer.id)
+        .outerjoin(Invoice, FinanceRecord.invoice_id == Invoice.id)
+        .where(FinanceRecord.type == "income")
+    )
+
+    if start_date:
+        stmt = stmt.where(FinanceRecord.date >= start_date)
+    if end_date:
+        stmt = stmt.where(FinanceRecord.date <= end_date)
+    if accounting_period:
+        stmt = stmt.where(FinanceRecord.accounting_period == accounting_period)
+
+    stmt = stmt.order_by(FinanceRecord.date.desc())
+
+    result = await db.execute(stmt)
+    rows = result.fetchall()
+
+    data = []
+    for row in rows:
+        data.append({
+            "id": row.id,
+            "收款日期": _format_export_value(row.date),
+            "收款金额": _format_export_value(row.amount),
+            "收款方式": row.category or "",
+            "客户名称": row.customer_name or "",
+            "关联合同": row.contract_no or "",
+            "关联发票": row.invoice_no or "",
+            "会计期间": row.accounting_period or "",
+            "对账状态": row.reconciliation_status or "pending",
+            "备注": row.description or "",
+        })
+
+    return data
+
+
+async def _fetch_invoices_data(
+    db: AsyncSession,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> list[dict[str, Any]]:
+    """获取发票导出数据（v1.8）。"""
+    stmt = (
+        select(
+            Invoice.invoice_no,
+            Invoice.invoice_type,
+            Invoice.invoice_date,
+            Customer.name.label("customer_name"),
+            Invoice.amount_excluding_tax,
+            Invoice.tax_rate,
+            Invoice.tax_amount,
+            Invoice.total_amount,
+            Contract.contract_no,
+            Invoice.status,
+        )
+        .join(Contract, Invoice.contract_id == Contract.id)
+        .join(Customer, Contract.customer_id == Customer.id)
+    )
+
+    if start_date:
+        stmt = stmt.where(Invoice.invoice_date >= start_date)
+    if end_date:
+        stmt = stmt.where(Invoice.invoice_date <= end_date)
+
+    stmt = stmt.order_by(Invoice.invoice_date.desc())
+
+    result = await db.execute(stmt)
+    rows = result.fetchall()
+
+    data = []
+    for row in rows:
+        data.append({
+            "发票编号": row.invoice_no,
+            "发票类型": row.invoice_type,
+            "开票日期": _format_export_value(row.invoice_date),
+            "客户名称": row.customer_name,
+            "不含税金额": _format_export_value(row.amount_excluding_tax),
+            "税率": float(row.tax_rate) if row.tax_rate else 0,
+            "税额": _format_export_value(row.tax_amount),
+            "价税合计": _format_export_value(row.total_amount),
+            "关联合同": row.contract_no,
+            "发票状态": row.status,
+        })
+
+    return data
+
+
+def save_export_file(
+    batch_id: str,
+    export_type: str,
+    target_format: str,
+    data: list[dict[str, Any]],
+) -> str:
+    """保存导出文件到 exports/ 目录（v1.8）。
+
+    Args:
+        batch_id: 批次 ID
+        export_type: 导出类型
+        target_format: 目标格式
+        data: 要导出的数据
+
+    Returns:
+        文件相对路径
+    """
+    # 确保目录存在
+    V18_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # 文件名格式：{export_type}_{target_format}_{batch_id}.xlsx
+    file_name = f"{export_type}_{target_format}_{batch_id}.xlsx"
+    file_path = V18_EXPORT_DIR / file_name
+
+    # 创建 Excel 文件
+    wb = Workbook()
+    ws = wb.active
+    ws.title = export_type.capitalize()
+
+    if data:
+        # 写入表头
+        headers = list(data[0].keys())
+        ws.append(headers)
+
+        # 写入数据
+        for row_data in data:
+            row = [row_data.get(h, "") for h in headers]
+            ws.append(row)
+
+    # 保存文件
+    wb.save(file_path)
+
+    logger.info(f"导出文件已保存: {file_path}, 记录数: {len(data)}")
+    return str(file_path)
+
+
+async def mark_records_as_exported(
+    db: AsyncSession,
+    record_ids: list[int],
+    batch_id: int,
+    accounting_period: str | None = None,
+) -> None:
+    """标记已导出的记录（v1.8）。
+
+    仅对 payments 类型更新 finance_records 表。
+
+    Args:
+        db: 数据库会话
+        record_ids: 记录 ID 列表
+        batch_id: 导出批次 ID
+        accounting_period: 会计期间（可选）
+    """
+    if not record_ids:
+        return
+
+    for record_id in record_ids:
+        stmt = select(FinanceRecord).where(FinanceRecord.id == record_id)
+        result = await db.execute(stmt)
+        record = result.scalar_one_or_none()
+
+        if record:
+            record.export_batch_id = batch_id
+            if accounting_period and not record.accounting_period:
+                record.accounting_period = accounting_period
+
+    await db.commit()
+    logger.info(f"已标记 {len(record_ids)} 条记录为已导出，批次 ID: {batch_id}")
+
+
+async def export_to_excel(
+    db: AsyncSession,
+    export_type: str,
+    filters: dict[str, Any],
+    target_format: str = "generic",
+) -> dict[str, Any]:
+    """统一导出入口，原子事务（v1.8）。
+
+    Args:
+        db: 数据库会话
+        export_type: 导出类型（contracts/payments/invoices）
+        filters: 筛选条件（start_date, end_date, accounting_period）
+        target_format: 目标格式
+
+    Returns:
+        包含 id, batch_id, file_path, record_count 的字典
+
+    Raises:
+        ValueError: 当 export_type 无效时
+        NotImplementedError: 当 target_format 不支持时
+    """
+    # 生成批次 ID
+    batch_id = generate_export_batch_id()
+
+    # 解析筛选条件
+    start_date = filters.get("start_date")
+    end_date = filters.get("end_date")
+    accounting_period = filters.get("accounting_period")
+
+    # 如果指定了会计期间，计算日期范围
+    if accounting_period and not (start_date or end_date):
+        start_date, end_date = get_period_date_range(accounting_period)
+
+    # 获取数据
+    if export_type == "contracts":
+        data = await _fetch_contracts_data(db, start_date, end_date)
+        record_ids = []  # 合同不更新批次 ID
+    elif export_type == "payments":
+        data = await _fetch_payments_data(db, start_date, end_date, accounting_period)
+        # 提取记录 ID 用于标记
+        record_ids = [row.get("id") for row in data] if data else []
+    elif export_type == "invoices":
+        data = await _fetch_invoices_data(db, start_date, end_date)
+        record_ids = []  # 发票不更新批次 ID
+    else:
+        raise ValueError(f"无效的导出类型: {export_type}")
+
+    # 格式映射
+    mapped_data = map_to_finance_format(data, target_format, export_type)
+
+    # 保存文件
+    try:
+        file_path = save_export_file(batch_id, export_type, target_format, mapped_data)
+    except Exception as e:
+        logger.error(f"保存导出文件失败: {e}")
+        # 创建批次记录但 file_path 为 NULL
+        batch = ExportBatch(
+            batch_id=batch_id,
+            export_type=export_type,
+            target_format=target_format,
+            accounting_period=accounting_period,
+            start_date=start_date or date.today(),
+            end_date=end_date or date.today(),
+            record_count=len(mapped_data),
+            file_path=None,
+        )
+        db.add(batch)
+        await db.commit()
+        await db.refresh(batch)
+        raise
+
+    # 创建批次记录
+    batch = ExportBatch(
+        batch_id=batch_id,
+        export_type=export_type,
+        target_format=target_format,
+        accounting_period=accounting_period,
+        start_date=start_date or date.today(),
+        end_date=end_date or date.today(),
+        record_count=len(mapped_data),
+        file_path=file_path,
+    )
+    db.add(batch)
+    await db.commit()
+    await db.refresh(batch)
+
+    # 标记已导出记录
+    if record_ids:
+        await mark_records_as_exported(db, record_ids, batch.id, accounting_period)
+
+    logger.info(
+        f"导出完成: batch_id={batch_id}, type={export_type}, "
+        f"count={len(mapped_data)}, format={target_format}"
+    )
+
+    return {
+        "id": batch.id,
+        "batch_id": batch_id,
+        "file_path": file_path,
+        "record_count": len(mapped_data),
+    }

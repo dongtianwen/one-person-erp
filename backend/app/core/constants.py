@@ -84,3 +84,49 @@ CHANGE_ORDER_VALID_TRANSITIONS_V17: dict[str, list[str]] = {
     "rejected": [],   # 终态
     "cancelled": [],  # 终态
 }
+
+# ── v1.8 财务对接模块 ───────────────────────────────────────────
+# 发票管理
+INVOICE_NO_PREFIX: str = "INV"  # 发票编号前缀
+INVOICE_TAX_RATE_STANDARD: float = 0.13  # 标准增值税率
+INVOICE_TAX_RATE_SMALL: float = 0.03  # 小规模纳税人税率
+
+# 发票状态白名单
+INVOICE_STATUS_WHITELIST: list[str] = ["draft", "issued", "received", "verified", "cancelled"]
+
+# 发票状态流转规则（精确定义，不得自行扩展）
+# draft → issued / received / verified / cancelled
+# issued → received / verified / cancelled
+# received → verified / cancelled
+# verified / cancelled 为终态，不可再流转
+INVOICE_VALID_TRANSITIONS: dict[str, list[str]] = {
+    "draft": ["issued", "received", "verified", "cancelled"],
+    "issued": ["received", "verified", "cancelled"],
+    "received": ["verified", "cancelled"],
+    "verified": [],  # 终态：财务人工确认核销
+    "cancelled": [],  # 终态：作废
+}
+
+# 发票类型白名单
+INVOICE_TYPE_WHITELIST: list[str] = ["standard", "ordinary", "electronic", "small_scale"]
+
+# 对账状态白名单
+RECONCILIATION_STATUS_WHITELIST: list[str] = ["pending", "matched", "verified"]
+
+# 财务导出
+EXPORT_DATE_FORMAT: str = "%Y-%m-%d"  # 导出文件中的日期格式
+EXPORT_DECIMAL_PLACES: int = 2  # 导出金额精度
+ACCOUNTING_PERIOD_FORMAT: str = "%Y-%m"  # 会计期间格式
+
+# 导出格式（generic 为必达，其余预留常量但本版本不实现）
+EXPORT_FORMAT_GENERIC: str = "generic"
+EXPORT_FORMAT_KINGDEE: str = "kingdee"  # 预留，未实现
+EXPORT_FORMAT_YOYO: str = "yoyo"  # 预留，未实现
+EXPORT_FORMAT_CHANJET: str = "chanjet"  # 预留，未实现
+EXPORT_FORMAT_SUPPORTED: list[str] = [EXPORT_FORMAT_GENERIC]  # 本版本只支持 generic
+
+# 发票编号格式：INV-YYYYMMDD-序号（当日从 001 起）
+# 税额计算：tax_amount = round(amount_excluding_tax * tax_rate, 2)
+# 价税合计：total_amount = round(amount_excluding_tax + tax_amount, 2)
+# 导出文件名格式：{export_type}_{target_format}_{batch_id}.xlsx
+# 会计期间：交易日期所属自然月，格式 YYYY-MM
