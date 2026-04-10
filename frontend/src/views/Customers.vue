@@ -41,7 +41,11 @@
                 <div class="status-dot" :class="statusTypes[row.status] || 'info'"></div>
               </div>
               <div>
-                <div class="cell-name clickable" @click="goDetail(row.id)">{{ row.name }}</div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <div class="cell-name clickable" @click="goDetail(row.id)">{{ row.name }}</div>
+                  <el-tag v-if="row.risk_level === 'warning'" size="small" type="warning" round>&#9888; 逾期预警</el-tag>
+                  <el-tag v-if="row.risk_level === 'high'" size="small" type="danger" round>&#128308; 高风险</el-tag>
+                </div>
                 <div class="cell-sub">{{ row.company || '-' }}</div>
               </div>
             </div>

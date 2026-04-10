@@ -174,3 +174,21 @@ class ReconciliationStatus(str, Enum):
     PENDING = "pending"        # 待对账
     MATCHED = "matched"        # 已匹配
     VERIFIED = "verified"      # 已确认（终态）
+
+
+# v1.9 固定成本枚举
+class FixedCostPeriod(str, Enum):
+    """固定成本周期枚举"""
+    MONTHLY = "monthly"
+    QUARTERLY = "quarterly"
+    YEARLY = "yearly"
+    ONETIME = "onetime"
+
+
+class FixedCostCategory(str, Enum):
+    """固定成本分类枚举"""
+    OFFICE = "office"
+    CLOUD = "cloud"
+    SOFTWARE = "software"
+    EQUIPMENT = "equipment"
+    OTHER = "other"

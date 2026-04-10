@@ -31,9 +31,16 @@ from app.api.endpoints import (
     project_change_orders,
     maintenance,
     invoices,
+    consistency,
+    overdue,
+    fixed_costs,
+    profit,
+    profit_overview,
+    input_invoices,
 )
 from app.database import async_session
 from app.api.endpoints.auth import create_default_admin
+from app.core.exception_handlers import BusinessException, business_exception_handler
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +112,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# v1.10 帮助系统——业务异常处理器
+app.add_exception_handler(BusinessException, business_exception_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -139,6 +149,18 @@ app.include_router(releases.router, prefix="/api/v1/projects/{project_id}/releas
 app.include_router(change_orders.router, prefix="/api/v1/contracts/{contract_id}/change-orders", tags=["变更单管理"])
 app.include_router(project_change_orders.router, prefix="/api/v1/projects/{project_id}/change-orders", tags=["变更单摘要"])
 app.include_router(maintenance.router, prefix="/api/v1/projects/{project_id}/maintenance-periods", tags=["售后/维护期"])
+# v1.9 一致性校验
+app.include_router(consistency.router, prefix="/api/v1/finance", tags=["一致性校验"])
+# v1.9 逾期预警
+app.include_router(overdue.router, prefix="/api/v1/finance", tags=["逾期预警"])
+# v1.9 固定成本
+app.include_router(fixed_costs.router, prefix="/api/v1/fixed-costs", tags=["固定成本"])
+# v1.9 项目粗利润
+app.include_router(profit.router, prefix="/api/v1/projects", tags=["项目粗利润"])
+# v1.9 粗利润概览
+app.include_router(profit_overview.router, prefix="/api/v1/finance", tags=["粗利润概览"])
+# v1.9 进项发票
+app.include_router(input_invoices.router, prefix="/api/v1/input-invoices", tags=["进项发票"])
 
 
 @app.get("/health")

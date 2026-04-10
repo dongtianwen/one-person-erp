@@ -3,6 +3,7 @@
     <div class="page-header">
       <div class="header-title-group">
         <span class="header-count mono">总计：{{ projects.length }} 个项目</span>
+        <PageHelpDrawer pageKey="project_detail" />
       </div>
       <el-button type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon>
@@ -165,31 +166,52 @@
 
       <!-- Profit Analysis Card -->
       <el-card v-if="detailProject" class="profit-card" style="margin: 16px 0; padding: 16px;">
-        <div class="card-header">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
           <span class="card-title">利润分析</span>
+          <el-button size="small" @click="handleRefreshProfit" :loading="profitRefreshing">刷新计算</el-button>
         </div>
+        <!-- v1.9 warnings -->
+        <el-alert
+          v-if="profitWarnings.length"
+          type="warning"
+          :closable="false"
+          show-icon
+          style="margin-bottom: 12px;"
+        >
+          <template #title>
+            <span v-for="(w, i) in profitWarnings" :key="i">{{ w }}；</span>
+          </template>
+        </el-alert>
         <div class="card-body">
           <div class="profit-grid">
             <div class="profit-item">
-              <span class="profit-label">项目收入</span>
-              <span class="profit-value">{{ detailProject.income != null ? '¥' + Number(detailProject.income).toLocaleString() : '—' }}</span>
+              <span class="profit-label">实收金额</span>
+              <span class="profit-value">{{ profitData.revenue?.received_amount != null ? '¥' + Number(profitData.revenue.received_amount).toLocaleString() : '¥0.00' }}</span>
+              <span class="profit-sub">合同额: {{ profitData.revenue?.contract_amount != null ? '¥' + Number(profitData.revenue.contract_amount).toLocaleString() : '—' }}</span>
             </div>
             <div class="profit-item">
-              <span class="profit-label">项目成本</span>
-              <span class="profit-value">{{ detailProject.cost != null ? '¥' + Number(detailProject.cost).toLocaleString() : '—' }}</span>
+              <span class="profit-label">人力成本</span>
+              <span class="profit-value">{{ profitData.cost?.labor_cost != null ? '¥' + Number(profitData.cost.labor_cost).toLocaleString() : '—' }}</span>
+              <span class="profit-sub">{{ profitData.cost?.labor_cost != null ? '' : '无工时数据' }}</span>
             </div>
             <div class="profit-item">
-              <span class="profit-label">项目利润</span>
-              <span class="profit-value"
-                  :class="{ negative: detailProject.profit != null && detailProject.profit < 0 }">
-                {{ detailProject.profit != null ? '¥' + Number(detailProject.profit).toLocaleString() : '—' }}
+              <span class="profit-label">固定成本</span>
+              <span class="profit-value">{{ profitData.cost?.fixed_cost_allocated != null ? '¥' + Number(profitData.cost.fixed_cost_allocated).toLocaleString() : '¥0.00' }}</span>
+            </div>
+            <div class="profit-item">
+              <span class="profit-label">进项发票</span>
+              <span class="profit-value">{{ profitData.cost?.input_invoice_cost != null ? '¥' + Number(profitData.cost.input_invoice_cost).toLocaleString() : '¥0.00' }}</span>
+            </div>
+            <div class="profit-item highlight">
+              <span class="profit-label">粗利润</span>
+              <span class="profit-value" :class="{ negative: profitData.profit?.gross_profit < 0 }">
+                {{ profitData.profit?.gross_profit != null ? '¥' + Number(profitData.profit.gross_profit).toLocaleString() : '—' }}
               </span>
             </div>
             <div class="profit-item">
-              <span class="profit-label">利润率</span>
-              <span class="profit-value"
-                  :class="{ negative: detailProject.profit_margin != null && detailProject.profit_margin < 0 }">
-                {{ detailProject.profit_margin != null ? detailProject.profit_margin.toFixed(2) + '%' : '—' }}
+              <span class="profit-label">毛利率</span>
+              <span class="profit-value" :class="{ negative: profitData.profit?.gross_margin != null && profitData.profit.gross_margin < 0 }">
+                {{ profitData.profit?.gross_margin != null ? (profitData.profit.gross_margin * 100).toFixed(2) + '%' : '—' }}
               </span>
             </div>
           </div>
@@ -429,6 +451,7 @@ import { getProjects, createProject, updateProject, deleteProject, getTasks, cre
 import { getCustomers } from '../api/customers'
 import api from '../api/index'
 import * as v17Api from '../api/v17'
+import { refreshProjectProfit as apiRefreshProfit } from '../api/v19'
 import RequirementsTab from './project-tabs/RequirementsTab.vue'
 import AcceptancesTab from './project-tabs/AcceptancesTab.vue'
 import DeliverablesTab from './project-tabs/DeliverablesTab.vue'
@@ -439,6 +462,7 @@ import ChangeOrderSummary from './project-tabs/ChangeOrderSummary.vue'
 import ChangeOrdersTab from './project-tabs/ChangeOrdersTab.vue'
 import MilestonePaymentTab from './project-tabs/MilestonePaymentTab.vue'
 import WorkHoursTab from './project-tabs/WorkHoursTab.vue'
+import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 
 const projects = ref([])
 const customers = ref([])
@@ -479,6 +503,11 @@ const milestoneForm = ref({ ...defaultMilestoneForm })
 const closeCheckDialogVisible = ref(false)
 const closeCheckData = ref(null)
 const closeLoading = ref(false)
+
+// v1.9 利润分析
+const profitData = ref({ revenue: {}, cost: {}, profit: {}, warnings: [] })
+const profitWarnings = ref([])
+const profitRefreshing = ref(false)
 
 const progressColor = (p) => {
   if (p >= 100) return '#10b981'
@@ -565,14 +594,23 @@ const loadDetailData = async (projectId) => {
   ])
   tasks.value = taskRes.data
   milestones.value = msRes.data
-  // Attach profit data + current_version to detailProject
+  // v1.9: 存储完整利润报告
+  profitData.value = profitRes.data || { revenue: {}, cost: {}, profit: {}, warnings: [] }
+  profitWarnings.value = profitData.value.warnings || []
+  // Attach current_version to detailProject
   Object.assign(detailProject.value, {
-    income: profitRes.data.income,
-    cost: profitRes.data.cost,
-    profit: profitRes.data.profit,
-    profit_margin: profitRes.data.profit_margin,
     current_version: projectRes.data.current_version || null
   })
+}
+
+const handleRefreshProfit = async () => {
+  if (!detailProject.value) return
+  profitRefreshing.value = true
+  try {
+    await apiRefreshProfit(detailProject.value.id)
+    await loadDetailData(detailProject.value.id)
+    ElMessage.success('利润已刷新')
+  } catch { /* */ } finally { profitRefreshing.value = false }
 }
 
 // --- Task CRUD ---
@@ -1012,10 +1050,20 @@ onMounted(() => { loadData(); loadCustomers() })
   border: 1px solid var(--border-light, #e2e8f0);
 }
 
+.profit-item.highlight {
+  background: var(--el-color-primary-light-9, #ecf5ff);
+  border-color: var(--el-color-primary-light-7, #c6e2ff);
+}
+
 .profit-label {
   font-size: 12px;
   color: var(--text-tertiary, #94a3b8);
   font-weight: 500;
+}
+
+.profit-sub {
+  font-size: 11px;
+  color: var(--text-tertiary, #94a3b8);
 }
 
 .profit-value {

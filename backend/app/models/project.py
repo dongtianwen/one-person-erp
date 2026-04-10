@@ -4,6 +4,12 @@ from app.models.base import Base, TimestampMixin
 
 
 class Project(Base, TimestampMixin):
+    """
+    项目：合同的执行单元，用于跟踪交付进度和工时成本。
+    通常一份合同对应一个项目。
+    项目是里程碑、工时记录、变更单、验收、交付物的归属容器。
+    项目粗利润 = 实收金额 - 工时成本 - 固定成本 - 进项成本。
+    """
     __tablename__ = "projects"
 
     name = Column(String(200), nullable=False, index=True)
@@ -20,6 +26,15 @@ class Project(Base, TimestampMixin):
     closed_at = Column(DateTime, nullable=True)  # 关闭时间
     estimated_hours = Column(Integer, nullable=True)  # 预计工时
     actual_hours = Column(Integer, nullable=True)  # 实际工时
+
+    # v1.9 粗利润缓存
+    cached_revenue = Column(Numeric(12, 2), nullable=True)
+    cached_labor_cost = Column(Numeric(12, 2), nullable=True)
+    cached_fixed_cost = Column(Numeric(12, 2), nullable=True)
+    cached_input_cost = Column(Numeric(12, 2), nullable=True)
+    cached_gross_profit = Column(Numeric(12, 2), nullable=True)
+    cached_gross_margin = Column(Numeric(8, 4), nullable=True)
+    profit_cache_updated_at = Column(DateTime, nullable=True)
 
     customer = relationship("Customer", back_populates="projects")
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")

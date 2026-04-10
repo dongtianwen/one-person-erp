@@ -99,10 +99,12 @@
             placeholder="请描述变更内容"
           />
         </el-form-item>
-        <el-form-item label="额外天数">
+        <el-form-item>
+          <template #label>额外天数 <FieldTip module="change_order" field="extra_days" /></template>
           <el-input-number v-model="formData.extra_days" :min="0" controls-position="right" />
         </el-form-item>
-        <el-form-item label="额外金额">
+        <el-form-item>
+          <template #label>额外金额 <FieldTip module="change_order" field="extra_amount" /></template>
           <el-input-number v-model="formData.extra_amount" :min="0" :precision="2" controls-position="right" />
           <span class="form-tip">允许为 0，但必须显式设置</span>
         </el-form-item>
@@ -137,6 +139,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import FieldTip from '../../components/FieldTip.vue'
 import * as v17Api from '../../api/v17'
 
 const props = defineProps({

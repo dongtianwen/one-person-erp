@@ -14,6 +14,17 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// v1.10 帮助系统——全局错误拦截
+// 4xx 有 help → ErrorHelp 对话框
+// 4xx 无 help → ElMessage.error(detail)
+// 5xx → 通用提示
+// 网络错误 → 网络提示
+let _errorHelpInstance = null
+
+export function setErrorHelpRef(ref) {
+  _errorHelpInstance = ref
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -36,8 +47,37 @@ api.interceptors.response.use(
         localStorage.removeItem('refresh_token')
         window.location.href = '/login'
       }
+      return Promise.reject(error)
     }
-    const msg = error.response?.data?.detail || '请求失败'
+
+    const status = error.response?.status
+    const responseData = error.response?.data
+
+    // HTTP 5xx：通用提示，不显示 help
+    if (status >= 500) {
+      ElMessage.error('服务器错误，请稍后重试')
+      return Promise.reject(error)
+    }
+
+    // HTTP 4xx：检查是否有 help 字段
+    if (status >= 400 && status < 500 && responseData?.help) {
+      if (_errorHelpInstance) {
+        _errorHelpInstance.show(responseData.help)
+      } else {
+        // fallback：降级为 ElMessage
+        ElMessage.error(responseData.detail || '操作失败')
+      }
+      return Promise.reject(error)
+    }
+
+    // 网络错误
+    if (!error.response) {
+      ElMessage.error('网络连接失败，请检查网络')
+      return Promise.reject(error)
+    }
+
+    // 其他 4xx 无 help：维持现有 ElMessage
+    const msg = responseData?.detail || '请求失败'
     ElMessage.error(msg)
     return Promise.reject(error)
   }

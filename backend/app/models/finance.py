@@ -4,6 +4,12 @@ from app.models.base import Base, TimestampMixin
 
 
 class FinanceRecord(Base, TimestampMixin):
+    """
+    收款记录：实际到账的款项记录，关联合同和发票。
+    finance_records.amount 为实收金额，是粗利润计算的收入基准。
+    收款记录可关联发票（invoice_id），也可不关联（未开票收款）。
+    reconciliation_status 表示该条收款的对账确认状态，由批量同步接口驱动。
+    """
     __tablename__ = "finance_records"
 
     contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=True)

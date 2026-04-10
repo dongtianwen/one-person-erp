@@ -13,6 +13,7 @@ from app.models.quotation import Quotation, QuotationItem, QuotationChange
 from app.models.contract import Contract
 from app.crud.quotation import quotation as quotation_crud
 from app.crud.contract import contract as contract_crud
+from app.core.exception_handlers import BusinessException
 from app.crud.customer import customer as customer_crud
 from app.schemas.quotation import (
     QuotationCreate, QuotationUpdate, QuotationResponse, QuotationListResponse,
@@ -447,9 +448,9 @@ async def convert_to_contract(
     if not q:
         raise HTTPException(status_code=404, detail="报价单不存在")
     if q.status != "accepted":
-        raise HTTPException(status_code=400, detail="仅已接受的报价单可转为合同")
+        raise BusinessException(status_code=400, detail="仅已接受的报价单可转为合同", code="QUOTE_NOT_ACCEPTED")
     if q.converted_contract_id:
-        raise HTTPException(status_code=400, detail="该报价单已转为合同")
+        raise BusinessException(status_code=400, detail="该报价单已转为合同", code="QUOTE_ALREADY_CONVERTED")
 
     before = {"status": q.status, "converted_contract_id": None}
     contract_no = await contract_crud.generate_contract_no(db)

@@ -4,6 +4,12 @@ from app.models.base import Base, TimestampMixin
 
 
 class Requirement(Base, TimestampMixin):
+    """
+    需求：项目的功能需求记录。
+    报价单被客户接受后，需求自动进入冻结状态。
+    冻结后的需求变更必须通过变更单（ChangeOrder）流转，不可直接修改。
+    requirement_changes 表记录字段级变更历史快照（内部审计用）。
+    """
     __tablename__ = "requirements"
 
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)

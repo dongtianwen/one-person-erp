@@ -57,6 +57,10 @@
           <el-icon><Download /></el-icon>
           <template #title>数据导出</template>
         </el-menu-item>
+        <el-menu-item index="/workflow-guide">
+          <el-icon><Guide /></el-icon>
+          <template #title>业务流程</template>
+        </el-menu-item>
       </el-menu>
 
       <div class="sidebar-bottom">
@@ -99,6 +103,7 @@
         </router-view>
       </el-main>
     </el-container>
+    <ErrorHelp ref="errorHelpRef" />
   </el-container>
 </template>
 
@@ -107,14 +112,17 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 import {
-  DataAnalysis, User, Folder, Document, Money, Bell, FolderOpened, Tickets, Download,
+  DataAnalysis, User, Folder, Document, Money, Bell, FolderOpened, Tickets, Download, Guide,
   ArrowDown, SwitchButton, Expand, Fold
 } from '@element-plus/icons-vue'
+import ErrorHelp from './ErrorHelp.vue'
+import { setErrorHelpRef } from '../api/index'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const collapsed = ref(false)
+const errorHelpRef = ref(null)
 
 const pageTitles = {
   '/dashboard': '仪表盘',
@@ -126,11 +134,15 @@ const pageTitles = {
   '/file-indexes': '文件管理',
   '/quotations': '报价单管理',
   '/exports': '数据导出',
+  '/workflow-guide': '业务流程',
 }
 
 const currentPageTitle = computed(() => pageTitles[route.path] || '数标云管')
 
 onMounted(() => {
+  if (errorHelpRef.value) {
+    setErrorHelpRef(errorHelpRef.value)
+  }
   if (authStore.isAuthenticated()) {
     authStore.fetchUser()
   }

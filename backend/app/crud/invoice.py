@@ -9,6 +9,8 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.exception_handlers import BusinessException
+
 from app.models.invoice import Invoice
 from app.models.contract import Contract
 from app.schemas.invoice import InvoiceCreate, InvoiceUpdate
@@ -107,9 +109,10 @@ class CRUDInvoice:
         if not await validate_invoice_amount(
             db, obj_in.contract_id, total_amount
         ):
-            raise HTTPException(
+            raise BusinessException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="开票金额已超合同金额"
+                detail="开票金额已超合同金额",
+                code="INVOICE_AMOUNT_EXCEEDS_CONTRACT",
             )
 
         # 5. 创建发票记录
@@ -177,9 +180,10 @@ class CRUDInvoice:
                 calc_result["total_amount"],
                 exclude_invoice_id=db_obj.id,
             ):
-                raise HTTPException(
+                raise BusinessException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="开票金额已超合同金额"
+                    detail="开票金额已超合同金额",
+                    code="INVOICE_AMOUNT_EXCEEDS_CONTRACT",
                 )
 
         for field, value in update_data.items():
@@ -199,9 +203,16 @@ class CRUDInvoice:
                 "verified": "已核销发票不可删除",
                 "cancelled": "已作废发票不可删除",
             }
+            detail = status_msg.get(db_obj.status, "当前状态不可删除")
+            if db_obj.status in ("verified", "cancelled"):
+                raise BusinessException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=detail,
+                    code="INVOICE_CANNOT_DELETE",
+                )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=status_msg.get(db_obj.status, "当前状态不可删除")
+                detail=detail,
             )
         await db.delete(db_obj)
         await db.commit()
@@ -219,9 +230,10 @@ class CRUDInvoice:
                     status_code=status.HTTP_409_CONFLICT,
                     detail="已作废发票不可开具"
                 )
-            raise HTTPException(
+            raise BusinessException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="非法状态流转"
+                detail="非法状态流转",
+                code="INVOICE_STATUS_INVALID_TRANSITION",
             )
 
         db_obj.status = "issued"
@@ -246,9 +258,10 @@ class CRUDInvoice:
                     status_code=status.HTTP_409_CONFLICT,
                     detail="已作废发票不可收票"
                 )
-            raise HTTPException(
+            raise BusinessException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="非法状态流转"
+                detail="非法状态流转",
+                code="INVOICE_STATUS_INVALID_TRANSITION",
             )
 
         db_obj.status = "received"
@@ -267,9 +280,10 @@ class CRUDInvoice:
                     status_code=status.HTTP_409_CONFLICT,
                     detail="已作废发票不可核销"
                 )
-            raise HTTPException(
+            raise BusinessException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="非法状态流转"
+                detail="非法状态流转",
+                code="INVOICE_STATUS_INVALID_TRANSITION",
             )
 
         db_obj.status = "verified"
@@ -287,9 +301,10 @@ class CRUDInvoice:
                     status_code=status.HTTP_409_CONFLICT,
                     detail="已核销发票不可作废"
                 )
-            raise HTTPException(
+            raise BusinessException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="非法状态流转"
+                detail="非法状态流转",
+                code="INVOICE_STATUS_INVALID_TRANSITION",
             )
 
         db_obj.status = "cancelled"

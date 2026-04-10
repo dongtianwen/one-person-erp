@@ -89,7 +89,8 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item label="工时(小时)" prop="hours_spent">
+        <el-form-item prop="hours_spent">
+          <template #label>工时(小时) <FieldTip module="work_hour" field="hours_spent" /></template>
           <el-input-number
             v-model="formData.hours_spent"
             :min="0.1"
@@ -109,7 +110,8 @@
             placeholder="简要描述当日工作内容"
           />
         </el-form-item>
-        <el-form-item label="偏差备注" prop="deviation_note">
+        <el-form-item prop="deviation_note">
+          <template #label>偏差备注 <FieldTip module="work_hour" field="deviation_note" /></template>
           <el-input
             v-model="formData.deviation_note"
             type="textarea"
@@ -153,6 +155,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import FieldTip from '../../components/FieldTip.vue'
 import * as v17Api from '../../api/v17'
 
 const props = defineProps({

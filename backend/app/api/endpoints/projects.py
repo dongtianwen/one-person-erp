@@ -26,6 +26,7 @@ from app.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.crud import project as project_crud
+from app.core.exception_handlers import BusinessException
 from app.schemas.project import (
     ProjectCreate,
     ProjectUpdate,
@@ -267,6 +268,8 @@ async def mark_milestone_invoiced(
     try:
         validation = validate_payment_transition_sync(sync_db, milestone_id, "invoiced")
         if not validation["allowed"]:
+            if "已完成" in validation["reason"]:
+                raise BusinessException(status_code=409, detail=validation["reason"], code="MILESTONE_NOT_COMPLETED")
             raise HTTPException(status_code=409, detail=validation["reason"])
     finally:
         sync_db.close()
@@ -392,14 +395,12 @@ async def close_project(
     if not result["success"]:
         # 判断错误类型
         if "已关闭" in result["message"]:
-            raise HTTPException(status_code=409, detail=result["message"])
+            raise BusinessException(status_code=409, detail=result["message"], code="PROJECT_ALREADY_CLOSED")
         elif "不满足关闭条件" in result["message"]:
-            raise HTTPException(
+            raise BusinessException(
                 status_code=409,
-                detail={
-                    "message": result["message"],
-                    "blocking_items": result.get("blocking_items", []),
-                }
+                detail="项目关闭条件未满足",
+                code="PROJECT_CLOSE_CONDITIONS_NOT_MET",
             )
         else:
             raise HTTPException(status_code=400, detail=result["message"])

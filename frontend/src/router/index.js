@@ -63,6 +63,11 @@ const routes = [
         path: 'exports',
         name: 'Exports',
         component: () => import('../views/Exports.vue')
+      },
+      {
+        path: 'workflow-guide',
+        name: 'WorkflowGuide',
+        component: () => import('../views/WorkflowGuide.vue')
       }
     ]
   }

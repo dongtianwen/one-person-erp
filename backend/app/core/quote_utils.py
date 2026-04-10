@@ -14,6 +14,7 @@ from app.core.constants import (
     QUOTE_VALID_TRANSITIONS,
 )
 from app.models.quotation import Quotation, QuotationChange
+from app.core.exception_handlers import BusinessException
 
 logger = logging.getLogger("app.quote_utils")
 
@@ -130,9 +131,9 @@ async def convert_quote_to_contract(
     if not quote:
         raise HTTPException(status_code=404, detail="报价单不存在")
     if quote.status != "accepted":
-        raise HTTPException(status_code=400, detail="仅已接受的报价单可转为合同")
+        raise BusinessException(status_code=400, detail="仅已接受的报价单可转为合同", code="QUOTE_NOT_ACCEPTED")
     if quote.converted_contract_id:
-        raise HTTPException(status_code=400, detail="该报价单已转为合同")
+        raise BusinessException(status_code=400, detail="该报价单已转为合同", code="QUOTE_ALREADY_CONVERTED")
 
     # 记录变更前快照
     before = {"status": quote.status, "converted_contract_id": None}

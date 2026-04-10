@@ -4,6 +4,12 @@ from app.models.base import Base, TimestampMixin
 
 
 class Contract(Base, TimestampMixin):
+    """
+    合同：与客户签订的正式服务协议。
+    合同金额是收款和发票的核对基准，不等同于实收金额。
+    一份合同通常对应一个项目（1:1），特殊情况可扩展。
+    合同是发票开具的前提，发票必须关联已存在的合同。
+    """
     __tablename__ = "contracts"
 
     contract_no = Column(String(50), unique=True, nullable=False, index=True)

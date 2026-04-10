@@ -3,6 +3,7 @@
     <div class="page-header">
       <div class="header-title-group">
         <span class="header-count mono">总计：{{ total }} 份合同</span>
+        <PageHelpDrawer pageKey="contract_detail" />
       </div>
       <el-button type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon>
@@ -214,6 +215,7 @@ import { getCustomers } from '../api/customers'
 import { getProjects } from '../api/projects'
 import { getChangeOrders, createChangeOrder, patchChangeOrder, getChangeOrderDetail } from '../api/changeOrders'
 import InvoicesTab from './contract-tabs/InvoicesTab.vue'
+import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 
 const contracts = ref([])
 const customers = ref([])

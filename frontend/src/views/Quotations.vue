@@ -3,6 +3,7 @@
     <div class="page-header">
       <div class="header-title-group">
         <span class="header-count mono">总计：{{ total }} 条记录</span>
+        <PageHelpDrawer pageKey="quote_list" />
       </div>
       <el-button type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon>
@@ -150,7 +151,8 @@
                   <el-option v-for="c in customerOptions" :key="c.id" :label="c.name" :value="c.id" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="有效期至" prop="valid_until">
+              <el-form-item prop="valid_until">
+                <template #label>有效期至 <FieldTip module="quote" field="valid_until" /></template>
                 <el-date-picker
                   v-model="form.valid_until"
                   type="date"
@@ -173,7 +175,8 @@
               />
             </el-form-item>
             <div class="form-grid">
-              <el-form-item label="预计工期（天）" prop="estimate_days">
+              <el-form-item prop="estimate_days">
+                <template #label>预计工期（天） <FieldTip module="quote" field="estimate_days" /></template>
                 <el-input-number
                   v-model="form.estimate_days"
                   :min="1"
@@ -183,7 +186,8 @@
                   :disabled="isAcceptedReadOnly"
                 />
               </el-form-item>
-              <el-form-item label="日费率">
+              <el-form-item>
+                <template #label>日费率 <FieldTip module="quote" field="daily_rate" /></template>
                 <el-input-number
                   v-model="form.daily_rate"
                   :min="0"
@@ -207,7 +211,8 @@
                   :disabled="isAcceptedReadOnly"
                 />
               </el-form-item>
-              <el-form-item label="风险缓冲率">
+              <el-form-item>
+                <template #label>风险缓冲率 <FieldTip module="quote" field="risk_buffer_rate" /></template>
                 <el-input-number
                   v-model="form.risk_buffer_rate"
                   :min="0"
@@ -221,7 +226,8 @@
               </el-form-item>
             </div>
             <div class="form-grid">
-              <el-form-item label="折扣金额">
+              <el-form-item>
+                <template #label>折扣金额 <FieldTip module="quote" field="discount_amount" /></template>
                 <el-input-number
                   v-model="form.discount_amount"
                   :min="0"
@@ -231,7 +237,8 @@
                   :disabled="isAcceptedReadOnly"
                 />
               </el-form-item>
-              <el-form-item label="税率">
+              <el-form-item>
+                <template #label>税率 <FieldTip module="quote" field="tax_rate" /></template>
                 <el-input-number
                   v-model="form.tax_rate"
                   :min="0"
@@ -416,8 +423,10 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, MoreFilled } from '@element-plus/icons-vue'
+import FieldTip from '../components/FieldTip.vue'
+import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 import {
-  getQuotations, createQuotation, updateQuotation, deleteQuotation,
+  getQuotations, getQuotation, createQuotation, updateQuotation, deleteQuotation,
   convertToContract, sendQuotation, acceptQuotation, rejectQuotation,
   cancelQuotation, previewQuotation,
 } from '../api/quotations'

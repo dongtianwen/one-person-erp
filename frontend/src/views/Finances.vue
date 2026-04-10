@@ -3,6 +3,7 @@
     <div class="page-header">
       <div class="header-title-group">
         <span class="header-count mono">总计：{{ total }} 条记录</span>
+        <PageHelpDrawer :pageKey="financeHelpKey" />
       </div>
       <el-button type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon>
@@ -244,6 +245,128 @@
           </div>
         </el-tab-pane>
 
+        <!-- v1.9 数据核查 Tab -->
+        <el-tab-pane label="数据核查" name="consistency">
+          <div class="consistency-section">
+            <div class="consistency-toolbar">
+              <el-button type="primary" size="small" @click="loadConsistencyCheck" :loading="consistencyLoading">立即核查</el-button>
+            </div>
+            <div v-if="consistencyLoading" style="padding: 32px 0; text-align: center;">
+              <el-icon class="is-loading" :size="24"><Loading /></el-icon>
+            </div>
+            <div v-else-if="!consistencyData.contracts?.length" class="consistency-ok">
+              <span>&#10003; 数据一致，无问题</span>
+            </div>
+            <div v-else>
+              <el-table :data="consistencyData.contracts" style="width: 100%" size="small">
+                <el-table-column prop="contract_no" label="合同号" width="140">
+                  <template #default="{ row }"><span class="mono">{{ row.contract_no }}</span></template>
+                </el-table-column>
+                <el-table-column prop="customer_name" label="客户" width="120" />
+                <el-table-column label="差异类型" min-width="200">
+                  <template #default="{ row }">
+                    <el-tag
+                      v-for="issue in row.issues"
+                      :key="issue.type"
+                      size="small"
+                      :type="consistencyIssueType(issue.type)"
+                      style="margin-right: 4px;"
+                    >{{ consistencyIssueLabel(issue.type) }}: ¥{{ (issue.gap || 0).toFixed(2) }}</el-tag>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </div>
+        </el-tab-pane>
+
+        <!-- v1.9 固定成本 Tab -->
+        <el-tab-pane label="固定成本" name="fixed-costs">
+          <div class="fixed-costs-section">
+            <div class="fc-toolbar">
+              <el-button type="primary" size="small" @click="openFcCreate"><el-icon><Plus /></el-icon> 新增成本</el-button>
+              <el-select v-model="fcPeriod" placeholder="月度汇总" style="width: 140px" @change="loadFcSummary">
+                <el-option v-for="p in fcPeriodOptions" :key="p" :label="p" :value="p" />
+              </el-select>
+            </div>
+
+            <el-table :data="fcList" style="width: 100%" v-loading="fcLoading" size="small">
+              <el-table-column prop="name" label="名称" min-width="120" />
+              <el-table-column prop="category" label="分类" width="90">
+                <template #default="{ row }">{{ fcCategoryLabels[row.category] || row.category }}</template>
+              </el-table-column>
+              <el-table-column prop="amount" label="金额" width="110" align="right">
+                <template #default="{ row }"><span class="mono">¥{{ (row.amount || 0).toFixed(2) }}</span></template>
+              </el-table-column>
+              <el-table-column prop="period" label="周期" width="80">
+                <template #default="{ row }">{{ fcPeriodLabels[row.period] || row.period }}</template>
+              </el-table-column>
+              <el-table-column prop="effective_date" label="生效日期" width="100">
+                <template #default="{ row }"><span class="mono">{{ row.effective_date }}</span></template>
+              </el-table-column>
+              <el-table-column prop="end_date" label="截止日期" width="100">
+                <template #default="{ row }"><span class="mono">{{ row.end_date || '-' }}</span></template>
+              </el-table-column>
+              <el-table-column label="操作" width="100">
+                <template #default="{ row }">
+                  <el-button link type="primary" size="small" @click="editFc(row)">编辑</el-button>
+                  <el-button link type="danger" size="small" @click="deleteFc(row.id)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <div v-if="fcSummary" class="fc-summary">
+              <div class="fc-summary-hint">以下为当月有效成本条目原始金额，非摊销后金额</div>
+              <div class="fc-summary-grid">
+                <div v-for="(item, cat) in fcSummary.by_category || {}" :key="cat" class="fc-summary-item">
+                  <span class="fc-summary-cat">{{ fcCategoryLabels[cat] || cat }}</span>
+                  <span class="mono fc-summary-val">¥{{ (item.total_amount || 0).toFixed(2) }}</span>
+                </div>
+              </div>
+              <div class="fc-summary-total">
+                合计：<span class="mono">¥{{ (fcSummary.total_amount || 0).toFixed(2) }}</span>
+              </div>
+            </div>
+          </div>
+        </el-tab-pane>
+
+        <!-- v1.9 进项发票（收到的票）Tab -->
+        <el-tab-pane label="进项发票（收到的票）" name="input-invoices">
+          <div class="input-invoices-section">
+            <div class="ii-toolbar">
+              <el-button type="primary" size="small" @click="openIiCreate"><el-icon><Plus /></el-icon> 新增进项发票</el-button>
+            </div>
+
+            <el-table :data="iiList" style="width: 100%" v-loading="iiLoading" size="small">
+              <el-table-column prop="invoice_no" label="发票号" width="140">
+                <template #default="{ row }"><span class="mono">{{ row.invoice_no }}</span></template>
+              </el-table-column>
+              <el-table-column prop="vendor_name" label="供应商" width="120" />
+              <el-table-column prop="invoice_date" label="日期" width="100">
+                <template #default="{ row }"><span class="mono">{{ row.invoice_date }}</span></template>
+              </el-table-column>
+              <el-table-column prop="amount_excluding_tax" label="不含税金额" width="110" align="right">
+                <template #default="{ row }"><span class="mono">¥{{ (row.amount_excluding_tax || 0).toFixed(2) }}</span></template>
+              </el-table-column>
+              <el-table-column prop="tax_rate" label="税率" width="70">
+                <template #default="{ row }"><span class="mono">{{ row.tax_rate ? (row.tax_rate * 100).toFixed(0) + '%' : '-' }}</span></template>
+              </el-table-column>
+              <el-table-column prop="total_amount" label="含税金额" width="110" align="right">
+                <template #default="{ row }"><span class="mono">¥{{ (row.total_amount || 0).toFixed(2) }}</span></template>
+              </el-table-column>
+              <el-table-column prop="category" label="分类" width="80">
+                <template #default="{ row }">{{ iiCategoryLabels[row.category] || row.category }}</template>
+              </el-table-column>
+              <el-table-column label="操作" width="100">
+                <template #default="{ row }">
+                  <el-button link type="primary" size="small" @click="editIi(row)">编辑</el-button>
+                  <el-button link type="danger" size="small" @click="deleteIi(row.id)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div v-if="!iiLoading && !iiList.length" class="empty-hint">暂无进项发票记录</div>
+          </div>
+        </el-tab-pane>
+
         <!-- v1.8 对账报表 Tab -->
         <el-tab-pane label="对账报表" name="reconciliation">
           <div class="reconciliation-section">
@@ -306,15 +429,14 @@
               <div v-if="reconciliationReport.unreconciled_records?.length" class="unreconciled-section">
                 <h4>未对账记录</h4>
                 <el-table :data="reconciliationReport.unreconciled_records" style="width: 100%" size="small">
-                  <el-table-column prop="date" label="日期" width="100" />
-                  <el-table-column prop="type" label="类型" width="60">
-                    <template #default="{ row }">{{ row.type === 'income' ? '收' : '支' }}</template>
+                  <el-table-column prop="transaction_date" label="日期" width="100" />
+                  <el-table-column prop="record_type" label="类型" width="60">
+                    <template #default="{ row }">{{ row.record_type === 'payment' ? '收' : '支' }}</template>
                   </el-table-column>
                   <el-table-column prop="amount" label="金额" width="100" align="right">
                     <template #default="{ row }"><span class="mono">¥{{ (row.amount || 0).toFixed(2) }}</span></template>
                   </el-table-column>
-                  <el-table-column prop="description" label="描述" min-width="150" />
-                  <el-table-column prop="reason" label="原因" width="120" />
+                  <el-table-column prop="reason" label="原因" min-width="150" />
                 </el-table>
               </div>
             </div>
@@ -323,6 +445,108 @@
         </el-tab-pane>
       </el-tabs>
     </el-card>
+
+    <!-- v1.9 固定成本 Dialog -->
+    <el-dialog v-model="fcDialogVisible" :title="fcEditingId ? '编辑固定成本' : '新增固定成本'" width="500px" destroy-on-close>
+      <el-form :model="fcForm" label-position="top">
+        <el-form-item label="名称" required>
+          <el-input v-model="fcForm.name" placeholder="如：服务器费用" />
+        </el-form-item>
+        <div class="form-grid">
+          <el-form-item label="分类">
+            <el-select v-model="fcForm.category" style="width: 100%">
+              <el-option v-for="(label, val) in fcCategoryLabels" :key="val" :label="label" :value="val" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <template #label>周期 <FieldTip module="fixed_cost" field="period" /></template>
+            <el-select v-model="fcForm.period" style="width: 100%">
+              <el-option v-for="(label, val) in fcPeriodLabels" :key="val" :label="label" :value="val" />
+            </el-select>
+          </el-form-item>
+        </div>
+        <div class="form-grid">
+          <el-form-item label="金额" required>
+            <el-input-number v-model="fcForm.amount" :min="0.01" :precision="2" style="width: 100%" />
+          </el-form-item>
+          <el-form-item required>
+            <template #label>生效日期 <FieldTip module="fixed_cost" field="effective_date" /></template>
+            <el-date-picker v-model="fcForm.effective_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+          </el-form-item>
+        </div>
+        <div class="form-grid">
+          <el-form-item>
+            <template #label>截止日期 <FieldTip module="fixed_cost" field="end_date" /></template>
+            <el-date-picker v-model="fcForm.end_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" clearable />
+          </el-form-item>
+          <el-form-item label="关联项目">
+            <el-select v-model="fcForm.project_id" placeholder="选填" clearable filterable style="width: 100%">
+              <el-option v-for="p in projects" :key="p.id" :label="p.name" :value="p.id" />
+            </el-select>
+          </el-form-item>
+        </div>
+        <el-form-item label="备注">
+          <el-input v-model="fcForm.notes" type="textarea" :rows="2" placeholder="选填" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="fcDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleFcSubmit">{{ fcEditingId ? '保存' : '创建' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- v1.9 进项发票 Dialog -->
+    <el-dialog v-model="iiDialogVisible" :title="iiEditingId ? '编辑进项发票' : '新增进项发票'" width="500px" destroy-on-close>
+      <el-form :model="iiForm" label-position="top">
+        <div class="form-grid">
+          <el-form-item label="发票号" required>
+            <el-input v-model="iiForm.invoice_no" placeholder="发票编号" />
+          </el-form-item>
+          <el-form-item label="供应商" required>
+            <el-input v-model="iiForm.vendor_name" placeholder="供应商名称" />
+          </el-form-item>
+        </div>
+        <div class="form-grid">
+          <el-form-item required>
+            <template #label>日期 <FieldTip module="invoice" field="invoice_date" /></template>
+            <el-date-picker v-model="iiForm.invoice_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+          </el-form-item>
+          <el-form-item required>
+            <template #label>不含税金额 <FieldTip module="invoice" field="amount_excluding_tax" /></template>
+            <el-input-number v-model="iiForm.amount_excluding_tax" :min="0.01" :precision="2" style="width: 100%" />
+          </el-form-item>
+        </div>
+        <div class="form-grid">
+          <el-form-item>
+            <template #label>税率 <FieldTip module="invoice" field="tax_rate" /></template>
+            <el-select v-model="iiForm.tax_rate" style="width: 100%">
+              <el-option label="13%" :value="0.13" />
+              <el-option label="9%" :value="0.09" />
+              <el-option label="6%" :value="0.06" />
+              <el-option label="3%" :value="0.03" />
+              <el-option label="1%" :value="0.01" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="分类">
+            <el-select v-model="iiForm.category" style="width: 100%">
+              <el-option v-for="(label, val) in iiCategoryLabels" :key="val" :label="label" :value="val" />
+            </el-select>
+          </el-form-item>
+        </div>
+        <el-form-item label="关联项目">
+          <el-select v-model="iiForm.project_id" placeholder="选填" clearable filterable style="width: 100%">
+            <el-option v-for="p in projects" :key="p.id" :label="p.name" :value="p.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="iiForm.notes" type="textarea" :rows="2" placeholder="选填" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="iiDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleIiSubmit">{{ iiEditingId ? '保存' : '创建' }}</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="showDialog" :title="editingId ? '编辑记录' : '新建记录'" width="600px" destroy-on-close>
       <el-form :model="form" label-position="top">
@@ -473,8 +697,10 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Plus, Search } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Search, Loading } from '@element-plus/icons-vue'
+import FieldTip from '../components/FieldTip.vue'
+import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 import api from '../api'
 import {
   createExportBatch,
@@ -484,6 +710,19 @@ import {
   getReconciliationReport as apiGetReconciliationReport,
   syncReconciliationStatus
 } from '../api/v18'
+import {
+  getConsistencyCheck,
+  refreshConsistencyCheck as apiRefreshConsistency,
+  getFixedCosts as apiGetFixedCosts,
+  createFixedCost as apiCreateFixedCost,
+  updateFixedCost as apiUpdateFixedCost,
+  deleteFixedCost as apiDeleteFixedCost,
+  getFixedCostSummary,
+  getInputInvoices as apiGetInputInvoices,
+  createInputInvoice as apiCreateInputInvoice,
+  updateInputInvoice as apiUpdateInputInvoice,
+  deleteInputInvoice as apiDeleteInputInvoice,
+} from '../api/v19'
 
 const records = ref([])
 const fundingStats = ref({ funding_sources: {}, unclosed_advances: 0, unclosed_loans: 0 })
@@ -504,6 +743,15 @@ const form = ref({ ...defaultForm })
 
 // v1.3 发票台账
 const activeTab = ref('all')
+
+// v1.10 帮助系统——根据当前 Tab 显示对应页面帮助
+const financeHelpKeyMap = {
+  export: 'finance_export',
+  consistency: 'consistency_check',
+  reconciliation: 'reconciliation',
+}
+const financeHelpKey = computed(() => financeHelpKeyMap[activeTab.value] || '')
+
 const invoiceLedger = ref([])
 const invoiceLoading = ref(false)
 const invoiceYearFilter = ref(new Date().getFullYear())
@@ -757,7 +1005,7 @@ const loadReconciliationPeriods = async () => {
     const { data } = await getReconciliationPeriods()
     availablePeriods.value = data.periods || []
     if (availablePeriods.value.length) {
-      selectedPeriod.value = availablePeriods.value[0]
+      selectedPeriod.value = availablePeriods.value[availablePeriods.value.length - 1]
       loadReconciliationReport()
     }
   } catch (err) {
@@ -791,7 +1039,92 @@ const handleSyncReconciliation = async () => {
   }
 }
 
-onMounted(() => { loadData(); loadContracts(); loadProjects(); loadFundingStats(); loadInvoiceLedger(); loadExportBatches(); loadReconciliationPeriods() })
+onMounted(() => { loadData(); loadContracts(); loadProjects(); loadFundingStats(); loadInvoiceLedger(); loadExportBatches(); loadReconciliationPeriods(); loadConsistencyCheck(); loadFcList(); loadIiList() })
+
+// ===== v1.9 数据核查 =====
+const consistencyData = ref({})
+const consistencyLoading = ref(false)
+const consistencyIssueLabel = (type) => ({ payment_gap: '收款差异', invoice_gap: '开票差异', unlinked_payment: '未关联收款', invoice_payment_mismatch: '票款不匹配' }[type] || type)
+const consistencyIssueType = (type) => ({ payment_gap: 'warning', invoice_gap: '', unlinked_payment: 'primary', invoice_payment_mismatch: 'danger' }[type] || 'info')
+const loadConsistencyCheck = async () => {
+  consistencyLoading.value = true
+  try {
+    const { data } = await getConsistencyCheck()
+    consistencyData.value = data
+  } catch {
+    consistencyData.value = {}
+  } finally {
+    consistencyLoading.value = false
+  }
+}
+
+// ===== v1.9 固定成本 =====
+const fcList = ref([])
+const fcLoading = ref(false)
+const fcPeriod = ref('')
+const fcSummary = ref(null)
+const fcDialogVisible = ref(false)
+const fcEditingId = ref(null)
+const fcCategoryLabels = { office: '办公', cloud: '云服务', software: '软件', equipment: '设备', other: '其他' }
+const fcPeriodLabels = { monthly: '月度', quarterly: '季度', yearly: '年度', onetime: '一次性' }
+const fcPeriodOptions = (() => { const opts = []; const now = new Date(); for (let i = 0; i < 6; i++) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); opts.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`) } return opts })()
+const defaultFcForm = { name: '', category: 'other', amount: 0, period: 'monthly', effective_date: '', end_date: '', project_id: null, notes: '' }
+const fcForm = ref({ ...defaultFcForm })
+
+const loadFcList = async () => {
+  fcLoading.value = true
+  try {
+    const { data } = await apiGetFixedCosts()
+    fcList.value = data
+  } catch { fcList.value = [] } finally { fcLoading.value = false }
+}
+const loadFcSummary = async () => {
+  if (!fcPeriod.value) return
+  try {
+    const { data } = await getFixedCostSummary(fcPeriod.value)
+    fcSummary.value = data
+  } catch { fcSummary.value = null }
+}
+const openFcCreate = () => { fcEditingId.value = null; fcForm.value = { ...defaultFcForm }; fcDialogVisible.value = true }
+const editFc = (row) => { fcEditingId.value = row.id; fcForm.value = { ...row }; fcDialogVisible.value = true }
+const deleteFc = async (id) => {
+  try { await ElMessageBox.confirm('确定删除该固定成本？', '确认', { type: 'warning' }); await apiDeleteFixedCost(id); ElMessage.success('删除成功'); loadFcList() } catch { /* */ }
+}
+const handleFcSubmit = async () => {
+  if (!fcForm.value.name || !fcForm.value.amount || !fcForm.value.effective_date) { ElMessage.warning('请填写必要信息'); return }
+  try {
+    if (fcEditingId.value) { await apiUpdateFixedCost(fcEditingId.value, fcForm.value); ElMessage.success('更新成功') }
+    else { await apiCreateFixedCost(fcForm.value); ElMessage.success('创建成功') }
+    fcDialogVisible.value = false; loadFcList(); if (fcPeriod.value) loadFcSummary()
+  } catch { /* */ }
+}
+
+// ===== v1.9 进项发票 =====
+const iiList = ref([])
+const iiLoading = ref(false)
+const iiDialogVisible = ref(false)
+const iiEditingId = ref(null)
+const iiCategoryLabels = { software: '软件', equipment: '设备', service: '服务', other: '其他' }
+const defaultIiForm = { invoice_no: '', vendor_name: '', invoice_date: '', amount_excluding_tax: 0, tax_rate: 0.13, category: 'other', project_id: null, notes: '' }
+const iiForm = ref({ ...defaultIiForm })
+
+const loadIiList = async () => {
+  iiLoading.value = true
+  try { const { data } = await apiGetInputInvoices(); iiList.value = data } catch { iiList.value = [] } finally { iiLoading.value = false }
+}
+const openIiCreate = () => { iiEditingId.value = null; iiForm.value = { ...defaultIiForm }; iiDialogVisible.value = true }
+const editIi = (row) => { iiEditingId.value = row.id; iiForm.value = { ...row }; iiDialogVisible.value = true }
+const deleteIi = async (id) => {
+  try { await ElMessageBox.confirm('确定删除该进项发票？', '确认', { type: 'warning' }); await apiDeleteInputInvoice(id); ElMessage.success('删除成功'); loadIiList() } catch { /* */ }
+}
+const handleIiSubmit = async () => {
+  if (!iiForm.value.invoice_no || !iiForm.value.vendor_name || !iiForm.value.invoice_date || !iiForm.value.amount_excluding_tax) { ElMessage.warning('请填写必要信息'); return }
+  try {
+    if (iiEditingId.value) { await apiUpdateInputInvoice(iiEditingId.value, iiForm.value); ElMessage.success('更新成功') }
+    else { await apiCreateInputInvoice(iiForm.value); ElMessage.success('创建成功') }
+    iiDialogVisible.value = false; loadIiList()
+  } catch { /* */ }
+}
 </script>
 
 <style scoped>
@@ -1105,4 +1438,30 @@ onMounted(() => { loadData(); loadContracts(); loadProjects(); loadFundingStats(
 .mono {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
 }
+
+/* v1.9 数据核查 */
+.consistency-section { padding: 0; }
+.consistency-toolbar { margin-bottom: 16px; }
+.consistency-ok {
+  display: flex; justify-content: center; align-items: center;
+  padding: 32px 0; color: var(--el-color-success); font-size: 15px; font-weight: 500;
+}
+
+/* v1.9 固定成本 */
+.fixed-costs-section { padding: 0; }
+.fc-toolbar { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; }
+.fc-summary {
+  margin-top: 20px; padding: 16px; background: var(--el-fill-color-lighter);
+  border-radius: 8px; border: 1px solid var(--border-subtle);
+}
+.fc-summary-hint { font-size: 12px; color: var(--text-tertiary); margin-bottom: 12px; }
+.fc-summary-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+.fc-summary-item { display: flex; flex-direction: column; gap: 4px; }
+.fc-summary-cat { font-size: 12px; color: var(--text-secondary); }
+.fc-summary-val { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.fc-summary-total { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-subtle); font-weight: 600; }
+
+/* v1.9 进项发票 */
+.input-invoices-section { padding: 0; }
+.ii-toolbar { margin-bottom: 16px; }
 </style>

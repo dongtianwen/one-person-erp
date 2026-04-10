@@ -262,6 +262,64 @@
       </el-table>
     </el-card>
 
+    <!-- v1.9 逾期预警 -->
+    <el-card class="anim-fade-in-up" style="margin-top: 20px">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">逾期预警</span>
+          <el-button type="primary" size="small" @click="loadOverdueWarnings" :loading="overdueLoading">刷新</el-button>
+        </div>
+      </template>
+      <div v-if="!overdueData.overdue_milestones?.length" class="empty-state">
+        <el-icon :size="32" color="var(--text-tertiary)"><Bell /></el-icon>
+        <p>暂无逾期里程碑</p>
+      </div>
+      <el-table v-else :data="overdueData.overdue_milestones" size="small" stripe>
+        <el-table-column prop="project_name" label="项目" min-width="120" />
+        <el-table-column prop="customer_name" label="客户" width="100" />
+        <el-table-column prop="payment_amount" label="金额" width="100" align="right">
+          <template #default="{ row }"><span class="mono">¥{{ (row.payment_amount || 0).toFixed(2) }}</span></template>
+        </el-table-column>
+        <el-table-column label="逾期天数" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.overdue_days > 30 ? 'danger' : row.overdue_days > 7 ? 'warning' : ''" size="small">
+              {{ row.overdue_days }} 天
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <!-- v1.9 项目粗利润 Top 5 -->
+    <el-card class="anim-fade-in-up" style="margin-top: 20px">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">项目粗利润概览</span>
+          <span class="card-subtitle">Top 5（读缓存）</span>
+        </div>
+      </template>
+      <div v-if="!profitOverview.length" class="empty-state">
+        <el-icon :size="32" color="var(--text-tertiary)"><DataBoard /></el-icon>
+        <p>暂无利润数据</p>
+      </div>
+      <el-table v-else :data="profitOverview" size="small" stripe>
+        <el-table-column prop="project_name" label="项目" min-width="120" />
+        <el-table-column label="收入" width="110" align="right">
+          <template #default="{ row }"><span class="mono">¥{{ (row.revenue || 0).toFixed(2) }}</span></template>
+        </el-table-column>
+        <el-table-column label="粗利润" width="110" align="right">
+          <template #default="{ row }">
+            <span class="mono" :class="{ negative: row.gross_profit < 0 }">¥{{ (row.gross_profit || 0).toFixed(2) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="毛利率" width="80" align="right">
+          <template #default="{ row }">
+            <span class="mono">{{ row.gross_margin != null ? (row.gross_margin * 100).toFixed(1) + '%' : '-' }}</span>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
     <!-- Bottom Row: 3 columns -->
     <el-row :gutter="20" style="margin-top: 20px">
       <el-col :span="8">
@@ -385,6 +443,10 @@
               <el-icon><Download /></el-icon>
               备份数据库
             </el-button>
+            <el-button @click="$router.push('/workflow-guide')">
+              <el-icon><Guide /></el-icon>
+              业务流程
+            </el-button>
           </div>
         </div>
       </el-card>
@@ -439,10 +501,11 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   TrendCharts, Wallet, Coin, DataBoard, Tickets,
-  Calendar, Document, Clock, Plus, Download, Bell
+  Calendar, Document, Clock, Plus, Download, Bell, Guide
 } from '@element-plus/icons-vue'
 import { getDashboard, getCustomerFunnel, getProjectStatus, getTodos, getRevenueTrend, backupDatabase, listBackups, verifyBackup, getCashflowForecast, getTaxSummary } from '../api/dashboard'
 import { getProjects } from '../api/projects'
+import { getOverdueWarnings, getProfitOverview } from '../api/v19'
 
 const functor = ref(null)
 const router = useRouter()
@@ -463,6 +526,20 @@ const taxLoading = ref(false)
 
 // v1.7 WIP 看板
 const wipProjects = ref([])
+
+// v1.9 逾期预警
+const overdueData = ref({ overdue_milestones: [], customer_risk_summary: [] })
+const overdueLoading = ref(false)
+const loadOverdueWarnings = async () => {
+  overdueLoading.value = true
+  try { const { data } = await getOverdueWarnings(); overdueData.value = data } catch { /* */ } finally { overdueLoading.value = false }
+}
+
+// v1.9 粗利润 Top 5
+const profitOverview = ref([])
+const loadProfitOverview = async () => {
+  try { const { data } = await getProfitOverview(); profitOverview.value = (data || []).slice(0, 5) } catch { /* */ }
+}
 
 const stageLabels = { potential: '潜在客户', follow_up: '跟进中', deal: '成交', lost: '流失' }
 const stageColors = { potential: '#94a3b8', follow_up: '#06b6d4', deal: '#10b981', lost: '#f43f5e' }
@@ -710,7 +787,7 @@ const formatFileSize = (bytes) => {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-onMounted(() => { loadData(); loadBackups(); loadCashflowForecast(); loadTaxSummary(); loadWipProjects(); loadFinancialMetrics() })
+onMounted(() => { loadData(); loadBackups(); loadCashflowForecast(); loadTaxSummary(); loadWipProjects(); loadFinancialMetrics(); loadOverdueWarnings(); loadProfitOverview() })
 </script>
 
 <style scoped>
@@ -1310,4 +1387,6 @@ onMounted(() => { loadData(); loadBackups(); loadCashflowForecast(); loadTaxSumm
 @media (max-width: 600px) {
   .metrics-grid { grid-template-columns: 1fr; }
 }
+
+.negative { color: #ef4444; }
 </style>

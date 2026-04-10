@@ -32,6 +32,9 @@ class CustomerUpdate(BaseModel):
 
 class CustomerResponse(CustomerBase):
     id: int
+    overdue_milestone_count: int = 0
+    overdue_amount: float = 0
+    risk_level: str = "normal"
 
     class Config:
         from_attributes = True
@@ -41,8 +44,6 @@ class CustomerDetailResponse(BaseModel):
     customer: CustomerResponse
     projects: list[dict] = []
     contracts: list[dict] = []
-    lifetime_value: Optional[dict] = None
-    lifetime_value: Optional[dict] = None
     lifetime_value: Optional[dict] = None
 
 

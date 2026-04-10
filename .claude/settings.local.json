@@ -46,7 +46,25 @@
       "Bash(where python:*)",
       "Bash(tasklist //FI \"IM python.exe\")",
       "Bash(tasklist //FI \"python.exe\")",
-      "mcp__chrome-devtools__get_console_message"
+      "mcp__chrome-devtools__get_console_message",
+      "Bash(claude --version)",
+      "Bash(sed:*)",
+      "mcp__filesystem__list_allowed_directories",
+      "mcp__filesystem__list_directory",
+      "mcp__filesystem__search_files",
+      "Bash(tasklist //F //IM python.exe)",
+      "mcp__chrome-devtools__select_page",
+      "Bash(TASKKILL /F /PID 94120)",
+      "Bash(grep -n \"async def calculate_project_income\\\\|async def calculate_project_cost\\\\|async def calculate_project_profit\\\\|async def calculate_customer_lifetime_value\\\\|def generate_excel\\\\|def generate_pdf\" app/core/*.py app/core/profit_utils.py app/core/customer_utils.py)",
+      "Bash(grep -n \"def calculate_project_profit\\\\|def calculate_customer_lifetime_value\" app/core/*.py)",
+      "Bash(grep -r \"10000\\\\|\\\\\"%Y-%m-%d\\\\\"\\\\|2$\" app/core/*.py)",
+      "Bash([ -d \"$d/.git\" ])",
+      "Bash([ -f \"$d/package.json\" ])",
+      "Bash(echo 'NPM: __TRACKED_VAR__')",
+      "Bash(awk '{print $6, $7, $8, $9}')",
+      "Bash(stat --format=\"%Y %n\" skills/*/SKILL.md)",
+      "Bash(awk '{print strftime\\(\"%Y-%m-%d\", $1\\), $2}')",
+      "Bash(stat --format=\"%Y %n\" agents/*.md)"
     ]
   }
 }

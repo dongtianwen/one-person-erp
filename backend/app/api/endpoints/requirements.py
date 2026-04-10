@@ -13,6 +13,7 @@ from app.models.project import Project
 from app.models.requirement import Requirement, RequirementChange
 from app.core.requirement_utils import set_requirement_as_current, can_modify_field
 from app.core.change_order_utils import is_project_requirements_frozen
+from app.core.exception_handlers import BusinessException
 
 from app.schemas.requirement import (
     RequirementCreate,
@@ -138,9 +139,10 @@ async def update_requirement(
 
     # v1.7: 检查需求是否冻结
     if await is_project_requirements_frozen(db, project_id):
-        raise HTTPException(
+        raise BusinessException(
             status_code=409,
-            detail="需求已冻结，请通过变更单提交"
+            detail="需求已冻结，请通过变更单提交",
+            code="REQUIREMENT_FROZEN",
         )
 
     # 字段修改约束
