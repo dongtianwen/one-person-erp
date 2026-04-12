@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/one-person-erp/openspec/changes/v1-4-profit-ltv-export/**)",
+      "Bash([ -f \"D:/one-person-erp/openspec/changes/v1-4-profit-ltv-export/specs/$dir/spec.md\" ])",
+      "Bash([ -d \"D:/one-person-erp/openspec/specs/$dir\" ])"
+    ]
+  }
+}

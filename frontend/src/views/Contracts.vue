@@ -28,7 +28,7 @@
         <el-table-column type="selection" width="50" />
         <el-table-column prop="contract_no" label="合同编号" width="160">
           <template #default="{ row }">
-            <span class="mono contract-no-link">{{ row.contract_no }}</span>
+            <span class="mono contract-no-link" @click="openContractDetail(row)">{{ row.contract_no }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="title" label="合同标题" min-width="200" show-overflow-tooltip>

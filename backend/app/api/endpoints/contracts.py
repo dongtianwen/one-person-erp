@@ -23,12 +23,19 @@ async def list_contracts(
     if status:
         filters["status"] = status
     items, total = await contract_crud.contract.list(db, skip=skip, limit=limit, filters=filters)
-    return ContractListResponse(
-        items=[ContractResponse.model_validate(c) for c in items],
-        total=total,
-        page=(skip // limit) + 1,
-        page_size=limit,
-    )
+    try:
+        validated_items = [ContractResponse.model_validate(c) for c in items]
+        return ContractListResponse(
+            items=validated_items,
+            total=total,
+            page=(skip // limit) + 1,
+            page_size=limit,
+        )
+    except Exception as e:
+        print(f"Error validating contracts: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 @router.get("/{contract_id}", response_model=ContractResponse)

@@ -312,6 +312,22 @@
         <el-tab-pane label="工时记录" name="work-hours">
           <WorkHoursTab :project-id="detailProject?.id" />
         </el-tab-pane>
+        <!-- v1.11 新增 Tabs -->
+        <el-tab-pane label="数据集" name="datasets">
+          <DatasetsTab :project-id="detailProject?.id" />
+        </el-tab-pane>
+        <el-tab-pane label="标注任务" name="annotation-tasks">
+          <AnnotationTasksTab :project-id="detailProject?.id" />
+        </el-tab-pane>
+        <el-tab-pane label="训练实验" name="training-experiments">
+          <TrainingExperimentsTab :project-id="detailProject?.id" />
+        </el-tab-pane>
+        <el-tab-pane label="模型版本" name="model-versions">
+          <ModelVersionsTab :project-id="detailProject?.id" />
+        </el-tab-pane>
+        <el-tab-pane label="交付包" name="delivery-packages">
+          <DeliveryPackagesTab :project-id="detailProject?.id" />
+        </el-tab-pane>
       </el-tabs>
     </el-dialog>
 
@@ -462,6 +478,11 @@ import ChangeOrderSummary from './project-tabs/ChangeOrderSummary.vue'
 import ChangeOrdersTab from './project-tabs/ChangeOrdersTab.vue'
 import MilestonePaymentTab from './project-tabs/MilestonePaymentTab.vue'
 import WorkHoursTab from './project-tabs/WorkHoursTab.vue'
+import DatasetsTab from './project-tabs/DatasetsTab.vue'
+import AnnotationTasksTab from './project-tabs/AnnotationTasksTab.vue'
+import TrainingExperimentsTab from './project-tabs/TrainingExperimentsTab.vue'
+import ModelVersionsTab from './project-tabs/ModelVersionsTab.vue'
+import DeliveryPackagesTab from './project-tabs/DeliveryPackagesTab.vue'
 import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 
 const projects = ref([])

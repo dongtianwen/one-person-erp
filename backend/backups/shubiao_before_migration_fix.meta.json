@@ -1,0 +1,49 @@
+{
+  "verification": {
+    "valid": true,
+    "backup_path": "backups\\shubiao_before_migration_fix.db",
+    "verified_at": "2026-04-11T18:18:11.873427",
+    "tables": {
+      "customers": {
+        "current": 7,
+        "backup": 7,
+        "match": true
+      },
+      "projects": {
+        "current": 18,
+        "backup": 18,
+        "match": true
+      },
+      "contracts": {
+        "current": 22,
+        "backup": 22,
+        "match": true
+      },
+      "finance_records": {
+        "current": 44,
+        "backup": 44,
+        "match": true
+      },
+      "reminders": {
+        "current": 10,
+        "backup": 10,
+        "match": true
+      },
+      "file_indexes": {
+        "current": 11,
+        "backup": 11,
+        "match": true
+      },
+      "quotations": {
+        "current": 14,
+        "backup": 14,
+        "match": true
+      },
+      "customer_assets": {
+        "current": 1,
+        "backup": 1,
+        "match": true
+      }
+    }
+  }
+}

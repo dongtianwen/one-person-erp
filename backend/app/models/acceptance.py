@@ -19,6 +19,11 @@ class Acceptance(Base):
     trigger_payment_reminder = Column(Boolean, nullable=False, default=False)
     reminder_id = Column(Integer, ForeignKey("reminders.id", ondelete="SET NULL"), nullable=True)
     confirm_method = Column(String(20), nullable=False)
+    delivery_package_id = Column(
+        Integer, ForeignKey("delivery_packages.id", ondelete="RESTRICT"),
+        nullable=True, comment="关联交付包ID",
+    )
+    acceptance_type = Column(String(20), nullable=True, comment="验收类型: dataset/model")
     created_at = Column(DateTime, nullable=False, default=lambda: __import__("datetime").datetime.utcnow())
 
     project = relationship("Project", back_populates="acceptances")

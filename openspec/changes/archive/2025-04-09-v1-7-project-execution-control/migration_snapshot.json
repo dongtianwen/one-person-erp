@@ -1,0 +1,133 @@
+{
+  "timestamp": "2026-04-08T18:38:51.168313",
+  "version": "v1.7-pre-migration",
+  "tables": {
+    "change_orders": {
+      "row_count": 1,
+      "columns": [
+        "id",
+        "order_no",
+        "contract_id",
+        "requirement_change_id",
+        "title",
+        "description",
+        "amount",
+        "status",
+        "confirmed_at",
+        "confirm_method",
+        "notes",
+        "created_at",
+        "updated_at",
+        "is_deleted"
+      ],
+      "sample_rows": [
+        [
+          1,
+          "BG-20260408-001",
+          9,
+          null,
+          "\u79ef\u5206\u5546\u57ce\u529f\u80fd\u8ffd\u52a0",
+          "\u989d\u5916\u5f00\u53d1\u79ef\u5206\u5546\u57ce\u6a21\u5757",
+          8000,
+          "confirmed",
+          "2026-04-07 21:55:57.567133",
+          "system",
+          null,
+          "2026-04-07 21:52:38.685341",
+          "2026-04-07 21:55:57.572046",
+          0
+        ]
+      ]
+    },
+    "milestones": {
+      "row_count": 1,
+      "columns": [
+        "project_id",
+        "title",
+        "description",
+        "due_date",
+        "completed_date",
+        "is_completed",
+        "id",
+        "created_at",
+        "updated_at",
+        "is_deleted"
+      ],
+      "sample_rows": [
+        [
+          3,
+          "\u9700\u6c42\u786e\u8ba4",
+          "",
+          "2026-04-30",
+          null,
+          0,
+          1,
+          "2026-04-04 23:33:32.426396",
+          "2026-04-04 23:33:32.426396",
+          0
+        ]
+      ]
+    },
+    "projects": {
+      "row_count": 12,
+      "columns": [
+        "name",
+        "customer_id",
+        "description",
+        "status",
+        "budget",
+        "start_date",
+        "end_date",
+        "progress",
+        "id",
+        "created_at",
+        "updated_at",
+        "is_deleted"
+      ],
+      "sample_rows": [
+        [
+          "AI\u667a\u80fd\u5ba2\u670d\u7cfb\u7edf",
+          1,
+          "\u57fa\u4e8e\u5927\u8bed\u8a00\u6a21\u578b\u7684\u667a\u80fd\u5ba2\u670d\u7cfb\u7edf",
+          "requirements",
+          50000.0,
+          "2026-04-01",
+          "2026-06-30",
+          0,
+          1,
+          "2026-04-04 14:33:12.031776",
+          "2026-04-04 14:39:56.582050",
+          1
+        ],
+        [
+          "\u4f01\u4e1a\u6570\u636e\u4e2d\u53f0",
+          1,
+          "\u4f01\u4e1a\u7ea7\u6570\u636e\u4e2d\u53f0\u5efa\u8bbe\u9879\u76ee",
+          "requirements",
+          80000.0,
+          "2026-05-01",
+          "2026-09-30",
+          0,
+          2,
+          "2026-04-04 14:36:25.356331",
+          "2026-04-04 14:36:35.111678",
+          1
+        ],
+        [
+          "\u4f01\u4e1a\u6570\u636e\u4e2d\u53f0",
+          1,
+          "\u4f01\u4e1a\u7ea7\u6570\u636e\u4e2d\u53f0\u5efa\u8bbe",
+          "requirements",
+          80000.0,
+          "2026-05-01",
+          "2026-09-30",
+          0,
+          3,
+          "2026-04-04 14:39:37.535799",
+          "2026-04-04 14:39:37.535799",
+          0
+        ]
+      ]
+    }
+  }
+}

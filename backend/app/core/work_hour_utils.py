@@ -109,7 +109,7 @@ def get_work_hour_summary(
 
     # 获取工时记录列表（按日期倒序）
     cur.execute("""
-        SELECT id, log_date, hours_spent, task_description, deviation_note
+        SELECT id, log_date, hours_spent, task_description, deviation_note, created_at
         FROM work_hour_logs
         WHERE project_id = ?
         ORDER BY log_date DESC, created_at DESC
@@ -124,6 +124,7 @@ def get_work_hour_summary(
             "hours_spent": float(row[2]),
             "task_description": row[3],
             "deviation_note": row[4],
+            "created_at": row[5],
         })
 
     return {

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import date
 
@@ -12,7 +12,7 @@ class ContractBase(BaseModel):
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     status: str = "draft"
-    terms: str = ""
+    terms: Optional[str] = ""
     expected_payment_date: Optional[date] = None
     payment_stage_note: Optional[str] = None
 
@@ -23,6 +23,7 @@ class ContractCreate(ContractBase):
 
 class ContractUpdate(BaseModel):
     title: Optional[str] = None
+    customer_id: Optional[int] = None
     project_id: Optional[int] = None
     amount: Optional[float] = None
     signed_date: Optional[date] = None
@@ -39,9 +40,7 @@ class ContractResponse(ContractBase):
     id: int
     contract_no: str
     quotation_id: Optional[int] = None
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ContractListResponse(BaseModel):

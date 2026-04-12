@@ -194,7 +194,8 @@ const loadData = async () => {
   loading.value = true
   try {
     const res = await v17Api.getProjectChangeOrders(props.projectId)
-    changeOrders.value = res.data?.items || []
+    // API 返回 {data: [...], is_frozen: ...}
+    changeOrders.value = res.data?.data || []
     // 从 API 响应中获取冻结状态
     isFrozen.value = res.data?.is_frozen || false
   } catch (err) {

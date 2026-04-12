@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 
 import sqlite3
@@ -47,7 +47,11 @@ async def create_project_change_order(
         raise HTTPException(status_code=404, detail="项目不存在")
 
     # 使用同步数据库连接检查需求冻结状态
-    sync_db = sqlite3.connect("shubiao.db")
+    import os
+    db_path = os.path.join(os.getcwd(), "shubiao.db")
+    if not os.path.exists(db_path):
+        db_path = os.path.join(os.getcwd(), "backend", "shubiao.db")
+    sync_db = sqlite3.connect(db_path)
     try:
         is_frozen = is_project_requirements_frozen_sync(sync_db, project_id)
         if is_frozen:
@@ -95,13 +99,17 @@ async def list_project_change_orders(
         raise HTTPException(status_code=404, detail="项目不存在")
 
     # 使用同步数据库查询
-    sync_db = sqlite3.connect("shubiao.db")
+    import os
+    db_path = os.path.join(os.getcwd(), "shubiao.db")
+    if not os.path.exists(db_path):
+        db_path = os.path.join(os.getcwd(), "backend", "shubiao.db")
+    sync_db = sqlite3.connect(db_path)
     try:
         cur = sync_db.cursor()
         cur.execute("""
             SELECT co.id, co.order_no, co.title, co.description,
                    co.amount as extra_amount, co.status, co.extra_days,
-                   co.created_at, co.updated_at
+                   co.client_confirmed_at, co.created_at, co.updated_at
             FROM change_orders co
             JOIN contracts c ON co.contract_id = c.id
             WHERE c.project_id = ? AND co.is_deleted = 0
@@ -113,7 +121,7 @@ async def list_project_change_orders(
         is_frozen = is_project_requirements_frozen_sync(sync_db, project_id)
 
         return {
-            "items": [
+            "data": [
                 {
                     "id": row[0],
                     "order_no": row[1],
@@ -122,8 +130,9 @@ async def list_project_change_orders(
                     "extra_amount": row[4],
                     "status": row[5],
                     "extra_days": row[6],
-                    "created_at": row[7],
-                    "updated_at": row[8],
+                    "client_confirmed_at": row[7] if len(row) > 7 else None,
+                    "created_at": row[8] if len(row) > 8 else row[7] if len(row) > 7 else None,
+                    "updated_at": row[9] if len(row) > 9 else row[8] if len(row) > 8 else None,
                 }
                 for row in orders
             ],
@@ -188,7 +197,11 @@ async def get_change_order_detail(
     current_user: User = Depends(get_current_user),
 ):
     """获取变更单详情（v1.7）。"""
-    sync_db = sqlite3.connect("shubiao.db")
+    import os
+    db_path = os.path.join(os.getcwd(), "shubiao.db")
+    if not os.path.exists(db_path):
+        db_path = os.path.join(os.getcwd(), "backend", "shubiao.db")
+    sync_db = sqlite3.connect(db_path)
     try:
         cur = sync_db.cursor()
         cur.execute("""
@@ -230,11 +243,18 @@ async def confirm_change_order(
     current_user: User = Depends(get_current_user),
 ):
     """客户确认变更单（v1.7）。"""
-    sync_db = sqlite3.connect("shubiao.db")
+    import os
+    db_path = os.path.join(os.getcwd(), "shubiao.db")
+    if not os.path.exists(db_path):
+        db_path = os.path.join(os.getcwd(), "backend", "shubiao.db")
+    sync_db = sqlite3.connect(db_path)
     try:
         result = confirm_change_order_sync(sync_db, co_id, current_user.id if current_user else None)
         sync_db.commit()
-        return result
+        return {
+            "client_confirmed_at": result.get("client_confirmed_at"),
+            "status": result.get("status")
+        }
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     finally:
@@ -250,7 +270,11 @@ async def reject_change_order(
     current_user: User = Depends(get_current_user),
 ):
     """客户拒绝变更单（v1.7）。"""
-    sync_db = sqlite3.connect("shubiao.db")
+    import os
+    db_path = os.path.join(os.getcwd(), "shubiao.db")
+    if not os.path.exists(db_path):
+        db_path = os.path.join(os.getcwd(), "backend", "shubiao.db")
+    sync_db = sqlite3.connect(db_path)
     try:
         result = reject_change_order_sync(sync_db, co_id, reason, current_user.id if current_user else None)
         sync_db.commit()
@@ -269,7 +293,11 @@ async def cancel_change_order(
     current_user: User = Depends(get_current_user),
 ):
     """撤销变更单（v1.7）。"""
-    sync_db = sqlite3.connect("shubiao.db")
+    import os
+    db_path = os.path.join(os.getcwd(), "shubiao.db")
+    if not os.path.exists(db_path):
+        db_path = os.path.join(os.getcwd(), "backend", "shubiao.db")
+    sync_db = sqlite3.connect(db_path)
     try:
         cur = sync_db.cursor()
 

@@ -19,6 +19,11 @@ class Requirement(Base, TimestampMixin):
     confirmed_at = Column(DateTime, nullable=True)
     confirm_method = Column(String(20), nullable=True)
     is_current = Column(Boolean, nullable=False, default=False)
+    requirement_type = Column(String(30), nullable=True, comment="需求类型，如 annotation_spec")
+    annotation_task_id = Column(
+        Integer, ForeignKey("annotation_tasks.id", ondelete="SET NULL"),
+        nullable=True, comment="关联标注任务ID（仅 annotation_spec 类型）",
+    )
     notes = Column(Text, nullable=True)
 
     project = relationship("Project", back_populates="requirements")

@@ -37,6 +37,11 @@ from app.api.endpoints import (
     profit,
     profit_overview,
     input_invoices,
+    datasets,
+    annotation_tasks,
+    training_experiments,
+    model_versions,
+    delivery_packages,
 )
 from app.database import async_session
 from app.api.endpoints.auth import create_default_admin
@@ -161,6 +166,17 @@ app.include_router(profit.router, prefix="/api/v1/projects", tags=["项目粗利
 app.include_router(profit_overview.router, prefix="/api/v1/finance", tags=["粗利润概览"])
 # v1.9 进项发票
 app.include_router(input_invoices.router, prefix="/api/v1/input-invoices", tags=["进项发票"])
+
+# v1.11 数据集台账
+app.include_router(datasets.router, prefix="/api/v1/datasets", tags=["数据集台账"])
+# v1.11 标注任务
+app.include_router(annotation_tasks.router, prefix="/api/v1/annotation-tasks", tags=["标注任务"])
+# v1.11 训练实验
+app.include_router(training_experiments.router, prefix="/api/v1/training-experiments", tags=["训练实验"])
+# v1.11 模型版本
+app.include_router(model_versions.router, prefix="/api/v1/model-versions", tags=["模型版本"])
+# v1.11 交付包
+app.include_router(delivery_packages.router, prefix="/api/v1/delivery-packages", tags=["交付包"])
 
 
 @app.get("/health")

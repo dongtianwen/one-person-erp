@@ -18,6 +18,13 @@ from app.models.release import Release
 from app.models.maintenance import MaintenancePeriod
 from app.models.invoice import Invoice
 from app.models.export_batch import ExportBatch
+from app.models.fixed_cost import FixedCost
+from app.models.input_invoice import InputInvoice
+from app.models.dataset import Dataset
+from app.models.annotation_task import AnnotationTask
+from app.models.training_experiment import TrainingExperiment
+from app.models.model_version import ModelVersion
+from app.models.delivery_package import DeliveryPackage
 
 __all__ = [
     "Base",
@@ -47,4 +54,11 @@ __all__ = [
     "MaintenancePeriod",
     "Invoice",
     "ExportBatch",
+    "FixedCost",
+    "InputInvoice",
+    "Dataset",
+    "AnnotationTask",
+    "TrainingExperiment",
+    "ModelVersion",
+    "DeliveryPackage",
 ]

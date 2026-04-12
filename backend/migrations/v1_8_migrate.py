@@ -148,6 +148,13 @@ def migrate(db_path: str = DB_PATH) -> None:
             ("idx_export_batches_created_at", "CREATE INDEX IF NOT EXISTS idx_export_batches_created_at ON export_batches(created_at)"),
         ]
 
+        # export_batches.batch_id 唯一索引（补充：若表先于迁移创建，可能缺失）
+        if not _index_exists(cur, "idx_export_batches_batch_id"):
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_export_batches_batch_id ON export_batches(batch_id)")
+            print("  idx_export_batches_batch_id 唯一索引已创建")
+        else:
+            print("  idx_export_batches_batch_id 唯一索引已存在，跳过")
+
         all_indexes = invoices_indexes + finance_indexes + export_indexes
         for idx_name, idx_sql in all_indexes:
             if not _index_exists(cur, idx_name):

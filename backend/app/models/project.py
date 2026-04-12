@@ -1,3 +1,4 @@
+from datetime import datetime
 from sqlalchemy import Column, String, Text, ForeignKey, Integer, Date, Float, Boolean, DateTime, Numeric, JSON
 from sqlalchemy.orm import relationship
 from app.models.base import Base, TimestampMixin
@@ -59,6 +60,21 @@ class Task(Base, TimestampMixin):
     due_date = Column(Date, nullable=True)
 
     project = relationship("Project", back_populates="tasks")
+
+
+class WorkHourLog(Base):
+    """v1.7 工时记录表。"""
+
+    __tablename__ = "work_hour_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, comment="所属项目ID")
+    log_date = Column(DateTime, nullable=False, comment="记录日期")
+    hours_spent = Column(Numeric(6, 2), nullable=False, comment="工时数")
+    task_description = Column(Text, nullable=False, comment="任务描述")
+    deviation_note = Column(Text, nullable=True, comment="偏差说明")
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, comment="创建时间")
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
 
 
 class Milestone(Base, TimestampMixin):

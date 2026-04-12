@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API 测试</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>API 测试</h1>
+    <pre id="result">点击按钮开始测试...</pre>
+    <button onclick="test()">测试所有 API</button>
+    <script>
+        async function test() {
+            const result = document.getElementById('result');
+            try {
+                // 1. 登录
+                const loginRes = await axios.post('http://localhost:5175/api/v1/auth/login', null, {
+                    params: { username: 'admin', password: 'admin123' }
+                });
+                const token = loginRes.data.access_token;
+                result.textContent = '登录成功: ' + token.substring(0, 20) + '...\n';
+
+                const headers = { 'Authorization': `Bearer ${token}` };
+
+                // 2. 测试数据集
+                try {
+                    const dsRes = await axios.get('http://localhost:5175/api/v1/datasets', { headers });
+                    result.textContent += '\n数据集 API: ' + dsRes.status + '\n';
+                    result.textContent += '数据: ' + JSON.stringify(dsRes.data).substring(0, 200) + '\n';
+                } catch(e) {
+                    result.textContent += '\n数据集 API 错误: ' + e.message + '\n';
+                }
+
+                // 3. 测试标注任务
+                try {
+                    const atRes = await axios.get('http://localhost:5175/api/v1/annotation-tasks', { headers });
+                    result.textContent += '\n标注任务 API: ' + atRes.status + '\n';
+                    result.textContent += '数据: ' + JSON.stringify(atRes.data).substring(0, 200) + '\n';
+                } catch(e) {
+                    result.textContent += '\n标注任务 API 错误: ' + e.message + '\n';
+                }
+
+                // 4. 测试训练实验
+                try {
+                    const teRes = await axios.get('http://localhost:5175/api/v1/training-experiments', { headers });
+                    result.textContent += '\n训练实验 API: ' + teRes.status + '\n';
+                    result.textContent += '数据: ' + JSON.stringify(teRes.data).substring(0, 200) + '\n';
+                } catch(e) {
+                    result.textContent += '\n训练实验 API 错误: ' + e.message + '\n';
+                }
+
+                // 5. 测试模型版本
+                try {
+                    const mvRes = await axios.get('http://localhost:5175/api/v1/model-versions', { headers });
+                    result.textContent += '\n模型版本 API: ' + mvRes.status + '\n';
+                    result.textContent += '数据: ' + JSON.stringify(mvRes.data).substring(0, 200) + '\n';
+                } catch(e) {
+                    result.textContent += '\n模型版本 API 错误: ' + e.message + '\n';
+                }
+
+                // 6. 测试交付包
+                try {
+                    const dpRes = await axios.get('http://localhost:5175/api/v1/delivery-packages', { headers });
+                    result.textContent += '\n交付包 API: ' + dpRes.status + '\n';
+                    result.textContent += '数据: ' + JSON.stringify(dpRes.data).substring(0, 200) + '\n';
+                } catch(e) {
+                    result.textContent += '\n交付包 API 错误: ' + e.message + '\n';
+                }
+
+                result.textContent += '\n测试完成!';
+            } catch(e) {
+                result.textContent = '错误: ' + e.message;
+            }
+        }
+    </script>
+</body>
+</html>

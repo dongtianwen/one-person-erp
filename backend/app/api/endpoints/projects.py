@@ -6,7 +6,7 @@ from typing import Optional
 from datetime import date, datetime
 from pydantic import BaseModel
 
-from app.core.profit_utils import calculate_project_profit
+from app.core.profit_utils import calculate_project_profit, calculate_project_profit_v19
 from app.core.milestone_payment_utils import (
     validate_payment_transition_sync,
     get_project_payment_summary,
@@ -137,21 +137,15 @@ async def update_project(
 async def get_project_profit(
     project_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
-    """FR-401: 项目利润核算接口"""
+    """FR-401: 项目利润核算接口（v1.9 详细报告）"""
     project = await project_crud.project.get(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="项目不存在")
 
-    result = await calculate_project_profit(project_id, db)
-    return {
-        "project_id": project.id,
-        "project_name": project.name,
-        "income": float(result["income"]),
-        "cost": float(result["cost"]),
-        "profit": float(result["profit"]),
-        "profit_margin": float(result["profit_margin"]) if result["profit_margin"] is not None else None,
-        "currency": "CNY",
-    }
+    result = await calculate_project_profit_v19(db, project_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
 
 
 @router.delete("/{project_id}")
@@ -454,7 +448,13 @@ async def create_work_hour_log(
         raise HTTPException(status_code=404, detail="项目不存在")
 
     # 使用同步连接获取当前偏差状态
-    sync_db = sqlite3.connect("shubiao.db")
+    import os
+    db_path = os.path.join(os.getcwd(), "shubiao.db")
+    if not os.path.exists(db_path):
+        # 尝试在 backend 目录下找 (针对开发环境运行目录不同的情况)
+        db_path = os.path.join(os.getcwd(), "backend", "shubiao.db")
+    
+    sync_db = sqlite3.connect(db_path)
     try:
         summary = get_work_hour_summary(sync_db, project_id)
         # 计算添加新记录后的总工时
@@ -471,8 +471,7 @@ async def create_work_hour_log(
         raise HTTPException(status_code=422, detail=deviation_info["reason"])
 
     # 创建工时记录
-    from sqlalchemy import insert
-    sync_db = sqlite3.connect("shubiao.db")
+    sync_db = sqlite3.connect(db_path)
     try:
         cur = sync_db.cursor()
         cur.execute("""
@@ -516,7 +515,11 @@ async def list_work_hours(
         raise HTTPException(status_code=404, detail="项目不存在")
 
     # 使用同步连接获取工时汇总
-    sync_db = sqlite3.connect("shubiao.db")
+    import os
+    db_path = os.path.join(os.getcwd(), "shubiao.db")
+    if not os.path.exists(db_path):
+        db_path = os.path.join(os.getcwd(), "backend", "shubiao.db")
+    sync_db = sqlite3.connect(db_path)
     try:
         summary = get_work_hour_summary(sync_db, project_id)
     finally:
@@ -537,7 +540,11 @@ async def get_work_hours_summary(
         raise HTTPException(status_code=404, detail="项目不存在")
 
     # 使用同步连接获取工时汇总
-    sync_db = sqlite3.connect("shubiao.db")
+    import os
+    db_path = os.path.join(os.getcwd(), "shubiao.db")
+    if not os.path.exists(db_path):
+        db_path = os.path.join(os.getcwd(), "backend", "shubiao.db")
+    sync_db = sqlite3.connect(db_path)
     try:
         summary = get_work_hour_summary(sync_db, project_id)
     finally:

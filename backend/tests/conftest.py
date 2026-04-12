@@ -35,7 +35,11 @@ async def db_session():
         yield session
 
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        try:
+            await conn.run_sync(Base.metadata.drop_all)
+        except Exception:
+            # SQLite 内存库的 drop_all 可能因外键依赖顺序失败，直接 dispose 即可
+            pass
 
     await engine.dispose()
 

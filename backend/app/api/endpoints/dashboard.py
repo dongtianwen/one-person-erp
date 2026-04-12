@@ -170,10 +170,12 @@ async def get_customer_funnel(db: AsyncSession = Depends(get_db), current_user: 
             .group_by(Customer.status)
         )
         stats = {row[0]: row[1] for row in result.all()}
+        
+        # 映射状态：active 表示已成交客户
         return {
             "potential": stats.get("potential", 0),
             "follow_up": stats.get("follow_up", 0),
-            "deal": stats.get("deal", 0),
+            "deal": stats.get("deal", 0) + stats.get("active", 0),  # active 映射到 deal
             "lost": stats.get("lost", 0),
         }
     except Exception:

@@ -23,4 +23,16 @@ ERROR_CODES: dict[str, str] = {
     "VALIDATION_ERROR": "输入数据校验失败",
     "DUPLICATE_ENTRY": "数据重复，违反唯一约束",
     "FOREIGN_KEY_VIOLATION": "关联数据不存在或被其他记录引用",
+    # v1.11 数据标注与模型开发交付台账
+    "DATASET_VERSION_FROZEN": "数据集版本核心字段已冻结",
+    "MODEL_VERSION_FROZEN": "模型版本核心字段已冻结",
+    "EXPERIMENT_FROZEN": "训练实验核心字段已冻结",
+    "VERSION_IN_USE_CANNOT_DELETE": "版本正在被引用，不可删除",
+    "DELIVERED_MODEL_CANNOT_DELETE": "已交付模型不可删除",
+    "ACCEPTED_PACKAGE_CANNOT_DELETE": "已验收交付包不可删除",
+    "DATASET_VERSION_IN_USE": "数据集版本正在使用中，不可手动设置in_use状态",
+    "PACKAGE_EMPTY_CANNOT_READY": "交付包无关联内容，不可标记为ready",
+    "PACKAGE_NOT_READY_CANNOT_DELIVER": "交付包未处于ready状态，不可交付",
+    "PACKAGE_ALREADY_HAS_ACCEPTANCE": "交付包已有验收记录",
+    "PACKAGE_ID_MISMATCH": "delivery_package_id与当前交付包不匹配",
 }

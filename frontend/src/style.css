@@ -192,9 +192,14 @@ a:hover { color: var(--brand-cyan-dark); }
   transition: background var(--duration-fast) var(--ease-out);
 }
 
-/* Fix Element Plus fixed-right column overlay bug */
+/* Fix Element Plus fixed-right column overlay bug — 固定列不能穿透弹窗遮罩 */
 .el-table .el-table-fixed-column--right {
   background: var(--surface-card) !important;
+}
+/* 把 fixed 列的层叠上下文压到表格内部，防止穿透 el-dialog 遮罩 (z-index: 2000) */
+.el-table__fixed-right,
+.el-table__fixed {
+  z-index: 1 !important;
 }
 .el-table__fixed-right::before, .el-table__fixed::before {
   display: none !important;

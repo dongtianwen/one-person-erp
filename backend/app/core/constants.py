@@ -157,3 +157,43 @@ HELP_CONTENT_VERSION: str = "1.10"
 HELP_MAX_NEXT_STEPS: int = 5          # 每条错误帮助最多显示步骤数
 HELP_FIELD_TIP_MAX_LENGTH: int = 30   # 字段提示最大字符数（中文）
 HELP_PAGE_TIP_MAX_ITEMS: int = 5      # 页面帮助抽屉最多条目数
+
+# ── v1.11 数据标注与模型开发交付台账 ──────────────────────────────
+# 数据集版本
+DATASET_VERSION_NO_PATTERN: str = r"^v\d+\.\d+$"
+DATASET_VERSION_STATUS_WHITELIST: list[str] = ["draft", "ready", "in_use", "archived"]
+DATASET_TYPE_WHITELIST: list[str] = ["image", "text", "audio", "video", "multimodal", "other"]
+DATASET_VERSION_FROZEN_STATUSES: list[str] = ["ready", "in_use", "archived"]
+DATASET_VERSION_FROZEN_FIELDS: list[str] = ["version_no", "dataset_id", "sample_count", "file_path", "data_source", "label_schema_version"]
+
+# 模型版本
+MODEL_VERSION_NO_PATTERN: str = r"^v\d+\.\d+\.\d+$"
+MODEL_VERSION_STATUS_WHITELIST: list[str] = ["training", "ready", "delivered", "deprecated"]
+MODEL_VERSION_FROZEN_STATUSES: list[str] = ["ready", "delivered", "deprecated"]
+MODEL_VERSION_FROZEN_FIELDS: list[str] = ["version_no", "experiment_id", "name", "file_path", "metrics"]
+
+# 训练实验
+EXPERIMENT_FROZEN_FIELDS: list[str] = ["project_id", "framework", "hyperparameters"]
+
+# 标注任务
+ANNOTATION_TASK_STATUS_WHITELIST: list[str] = ["pending", "in_progress", "quality_check", "rework", "completed", "cancelled"]
+ANNOTATION_TASK_VALID_TRANSITIONS: dict[str, list[str]] = {
+    "pending": ["in_progress", "cancelled"],
+    "in_progress": ["quality_check", "cancelled"],
+    "quality_check": ["completed", "rework"],
+    "rework": ["in_progress"],
+    "completed": [],
+    "cancelled": [],
+}
+ANNOTATION_SPEC_REQUIREMENT_TYPE: str = "annotation_spec"
+
+# 交付包
+DELIVERY_PACKAGE_STATUS_WHITELIST: list[str] = ["draft", "ready", "delivered", "accepted"]
+DELIVERY_PACKAGE_VALID_TRANSITIONS: dict[str, list[str]] = {
+    "draft": ["ready"],
+    "ready": ["delivered"],
+    "delivered": ["accepted"],
+    "accepted": [],
+}
+ACCEPTANCE_TYPE_DATASET: str = "dataset"
+ACCEPTANCE_TYPE_MODEL: str = "model"

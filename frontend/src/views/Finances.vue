@@ -1003,10 +1003,14 @@ const handleDownload = async (row) => {
 const loadReconciliationPeriods = async () => {
   try {
     const { data } = await getReconciliationPeriods()
+    console.log('Available Periods:', data.periods)
     availablePeriods.value = data.periods || []
     if (availablePeriods.value.length) {
       selectedPeriod.value = availablePeriods.value[availablePeriods.value.length - 1]
+      console.log('Selected Period:', selectedPeriod.value)
       loadReconciliationReport()
+    } else {
+      console.warn('No periods available')
     }
   } catch (err) {
     console.error('Failed to load periods:', err)
@@ -1018,6 +1022,8 @@ const loadReconciliationReport = async () => {
   reconciliationLoading.value = true
   try {
     const { data } = await apiGetReconciliationReport(selectedPeriod.value)
+    console.log('Reconciliation Report Data:', data)
+    console.log('Breakdown:', data?.breakdown)
     reconciliationReport.value = data
   } catch (err) {
     console.error('Failed to load report:', err)
