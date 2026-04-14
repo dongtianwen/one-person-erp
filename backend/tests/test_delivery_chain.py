@@ -183,7 +183,7 @@ async def test_traceability_package_to_dataset(client, db):
     await client.post(f"/api/v1/delivery-packages/{pkg_id}/acceptance", json={"result": "passed", "delivery_package_id": pkg_id}, headers=headers)
 
     r = await client.get(f"/api/v1/delivery-packages/{pkg_id}/traceability", headers=headers)
-    data = r.json()
+    data = r.json()["data"]
     assert len(data["model_versions"]) == 1
     assert len(data["model_versions"][0]["dataset_versions"]) == 1
     assert data["acceptance"] is not None

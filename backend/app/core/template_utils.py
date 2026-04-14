@@ -180,7 +180,7 @@ def build_contract_context(
     }
 
     # 可选变量：优先从已有数据自动填充
-    notes = quotation.get("notes", "") or contract.get("notes", "") or ""
+    notes = (quotation.get("notes", "") if quotation else "") or contract.get("notes", "") or ""
 
     context.update({
         "payment_terms": contract.get("payment_terms", "") or _auto_payment_terms(

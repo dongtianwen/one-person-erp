@@ -301,7 +301,7 @@ async def test_get_package_traceability_complete(client, db):
         headers=headers,
     )
     assert r.status_code == 200
-    data = r.json()
+    data = r.json()["data"]
     assert "package" in data
     assert "model_versions" in data
     assert "dataset_versions" in data

@@ -8,6 +8,8 @@ from app.main import app
 from app.database import get_db
 from app.models.base import Base
 from app.models.user import User
+from app.models.template import Template
+from app.models.setting import SystemSetting
 from app.core.security import get_password_hash
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -31,6 +33,29 @@ async def db_session():
             is_superuser=True,
         )
         session.add(admin)
+
+        # Seed default templates for v1.12 tests
+        quotation_tpl = Template(
+            name="默认报价模板",
+            template_type="quotation",
+            content="# 报价单\n\n报价单编号: {{ quotation_no }}\n客户名称: {{ customer_name }}\n项目名称: {{ project_name }}\n",
+            is_default=1,
+            description="默认报价模板",
+        )
+        contract_tpl = Template(
+            name="默认合同模板",
+            template_type="contract",
+            content="# 服务合同\n\n合同编号: {{ contract_no }}\n客户名称: {{ customer_name }}\n项目名称: {{ project_name }}\n报价单编号: {{ quotation_no }}\n",
+            is_default=1,
+            description="默认合同模板",
+        )
+        # Seed company settings for v1.12 contract generation tests
+        company_setting = SystemSetting(
+            key="company_name",
+            value="测试公司",
+        )
+        session.add_all([quotation_tpl, contract_tpl, company_setting])
+
         await session.commit()
         yield session
 
@@ -52,7 +77,7 @@ async def client(db_session):
     app.dependency_overrides[get_db] = override_get_db
 
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test", follow_redirects=True) as ac:
         yield ac
 
     app.dependency_overrides.clear()

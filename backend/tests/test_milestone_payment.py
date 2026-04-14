@@ -63,11 +63,11 @@ class TestPaymentTransitionValidation:
 
     def test_invoiced_requires_milestone_completed(self, db):
         """FR-702: invoiced 状态要求里程碑已完成。"""
-        # 查找一个未完成的里程碑
+        # 查找一个未完成且状态为 unpaid 的里程碑
         cur = db.cursor()
         cur.execute("""
             SELECT id FROM milestones
-            WHERE is_completed = 0
+            WHERE is_completed = 0 AND payment_status = 'unpaid'
             LIMIT 1
         """)
         row = cur.fetchone()
