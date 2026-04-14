@@ -1,7 +1,7 @@
 from app.models.base import Base
 from app.models.user import User
 from app.models.customer import Customer
-from app.models.project import Project, Task, Milestone
+from app.models.project import Project, Task, Milestone, WorkHourLog
 from app.models.contract import Contract
 from app.models.finance import FinanceRecord
 from app.models.changelog import ChangeLog
@@ -25,6 +25,7 @@ from app.models.annotation_task import AnnotationTask
 from app.models.training_experiment import TrainingExperiment
 from app.models.model_version import ModelVersion
 from app.models.delivery_package import DeliveryPackage
+from app.models.template import Template
 
 __all__ = [
     "Base",
@@ -33,6 +34,7 @@ __all__ = [
     "Project",
     "Task",
     "Milestone",
+    "WorkHourLog",
     "Contract",
     "FinanceRecord",
     "ChangeLog",
@@ -61,4 +63,5 @@ __all__ = [
     "TrainingExperiment",
     "ModelVersion",
     "DeliveryPackage",
+    "Template",
 ]
