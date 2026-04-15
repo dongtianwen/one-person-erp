@@ -1,39 +1,26 @@
-# Python
-**/.venv/
-**/__pycache__/
-**/*.pyc
-**/.pytest_cache/
-**/.ruff_cache/
-**/*.db
+# Database files
+*.db
+*.db-shm
+*.db-wal
 
-# Node.js
-frontend/node_modules/
-frontend/dist/
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
 
-# Environment files
-.env
-*.local
+# Node modules (if any)
+node_modules/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
+# OS files
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
+# Test/data scripts
+add_test_data.py
+check_*.py
+debug_*.py
+response.json
+contract_output.txt
 
-# Build artifacts
-dist/
-build/
-
-# Test artifacts
-*.png
-*.xlsx
-test_*.py
-!backend/tests/test_*.py
-temp_snapshot.txt
+# Misc
+=3.1.0
