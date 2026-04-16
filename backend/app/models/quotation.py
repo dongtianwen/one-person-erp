@@ -4,6 +4,10 @@ from app.models.base import Base, TimestampMixin
 
 
 class Quotation(Base, TimestampMixin):
+    # v1.12 模板和内容生成相关字段
+    generated_content = Column(Text, nullable=True)  # 生成的完整内容
+    template_id = Column(Integer, ForeignKey("templates.id", ondelete="SET NULL"), nullable=True)  # 使用的模板ID
+    content_generated_at = Column(DateTime, nullable=True)  # 内容生成时间
     __tablename__ = "quotations"
 
     quote_no = Column(String(30), unique=True, nullable=False, index=True)
@@ -33,6 +37,7 @@ class Quotation(Base, TimestampMixin):
     customer = relationship("Customer", back_populates="quotations")
     project = relationship("Project")
     contract = relationship("Contract", foreign_keys=[converted_contract_id])
+    template = relationship("Template", foreign_keys=[template_id])
     items = relationship("QuotationItem", back_populates="quotation", cascade="all, delete-orphan")
     changes = relationship("QuotationChange", back_populates="quotation", cascade="all, delete-orphan")
 

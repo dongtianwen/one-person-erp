@@ -26,7 +26,12 @@ export function setErrorHelpRef(ref) {
 }
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (response.data && response.data.code !== undefined) {
+      response.data = response.data.data
+    }
+    return response
+  },
   async (error) => {
     if (error.response?.status === 401) {
       const refreshToken = localStorage.getItem('refresh_token')
@@ -70,8 +75,12 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    // 网络错误
+    // 网络错误或手动取消
     if (!error.response) {
+      if (axios.isCancel(error)) {
+        // 请求被用户主动取消（如点击了“终止分析”），不弹全局错误
+        return Promise.reject(error)
+      }
       ElMessage.error('网络连接失败，请检查网络')
       return Promise.reject(error)
     }

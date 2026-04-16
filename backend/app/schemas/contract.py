@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
-from datetime import date
+from datetime import date, datetime
 
 
 class ContractBase(BaseModel):
@@ -40,6 +40,9 @@ class ContractResponse(ContractBase):
     id: int
     contract_no: str
     quotation_id: Optional[int] = None
+    generated_content: Optional[str] = None
+    template_id: Optional[int] = None
+    content_generated_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
 

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.constants import (
     AGENT_TYPE_BUSINESS_DECISION,
     AGENT_TYPE_PROJECT_MANAGEMENT,
+    AGENT_TYPE_DELIVERY_QC,
     AGENT_RUN_STATUS_WHITELIST,
     AGENT_TRIGGER_TYPE_WHITELIST,
     LLM_PROVIDER_NONE,
@@ -21,6 +22,7 @@ from app.core.exception_handlers import BusinessException
 from app.core.agent_rules import (
     run_business_decision_rules,
     run_project_management_rules,
+    run_delivery_qc_rules,
 )
 from app.core.llm_client import get_llm_provider, build_llm_context
 
@@ -32,6 +34,7 @@ async def run_agent(
     agent_type: str,
     trigger_type: str = "manual",
     project_id: Optional[int] = None,
+    package_id: Optional[int] = None,
     use_llm: bool = True,
 ) -> Dict[str, Any]:
     """运行 Agent 核心函数。
@@ -43,7 +46,8 @@ async def run_agent(
     from app.models.agent_run import AgentRun
     from app.models.agent_suggestion import AgentSuggestion
 
-    if agent_type not in [AGENT_TYPE_BUSINESS_DECISION, AGENT_TYPE_PROJECT_MANAGEMENT]:
+    valid_types = [AGENT_TYPE_BUSINESS_DECISION, AGENT_TYPE_PROJECT_MANAGEMENT, AGENT_TYPE_DELIVERY_QC]
+    if agent_type not in valid_types:
         raise BusinessException(
             status_code=400,
             detail=f"不支持的 agent_type: {agent_type}",
@@ -89,6 +93,8 @@ async def run_agent(
             rules_output = await run_business_decision_rules(db)
         elif agent_type == AGENT_TYPE_PROJECT_MANAGEMENT:
             rules_output = await run_project_management_rules(db, project_id)
+        elif agent_type == AGENT_TYPE_DELIVERY_QC:
+            rules_output = await run_delivery_qc_rules(db, package_id)
         else:
             rules_output = []
 

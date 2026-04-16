@@ -22,5 +22,28 @@ debug_*.py
 response.json
 contract_output.txt
 
+# Environment & secrets
+.env
+backend/.env
+
+# Logs
+logs/
+backend/backend.log
+
+# Exports
+backend/exports/
+
+# Scratch & temp test files
+scratch/
+backend/test_*.py
+backend/test.xlsx
+test_*.png
+
+# IDE
+.trae/
+.claude/
+.codex/
+.opencode/
+
 # Misc
 =3.1.0

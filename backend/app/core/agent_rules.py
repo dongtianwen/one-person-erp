@@ -26,6 +26,12 @@ from app.core.constants import (
     SUGGESTION_TYPE_CASHFLOW_WARNING,
     SUGGESTION_TYPE_TASK_DELAY,
     SUGGESTION_TYPE_CHANGE_IMPACT,
+    SUGGESTION_TYPE_DELIVERY_MISSING_MODEL,
+    SUGGESTION_TYPE_DELIVERY_MISSING_DATASET,
+    SUGGESTION_TYPE_DELIVERY_MISSING_ACCEPTANCE,
+    SUGGESTION_TYPE_DELIVERY_VERSION_MISMATCH,
+    SUGGESTION_TYPE_DELIVERY_EMPTY_PACKAGE,
+    SUGGESTION_TYPE_DELIVERY_UNBOUND_PROJECT,
     PRIORITY_WHITELIST,
 )
 
@@ -271,12 +277,13 @@ async def evaluate_change_impact(db: AsyncSession) -> List[Dict[str, Any]]:
     检测近期未确认的变更单。
     """
     from app.models.change_order import ChangeOrder
+    from app.models.contract import Contract
     from sqlalchemy.orm import selectinload
     from datetime import timedelta
     cutoff = (date.today() - timedelta(days=30)).isoformat()
     result = await db.execute(
         select(ChangeOrder).options(
-            selectinload(ChangeOrder.contract).selectinload("project")
+            selectinload(ChangeOrder.contract).selectinload(Contract.project)
         ).where(
             ChangeOrder.status == "pending",
             ChangeOrder.created_at >= cutoff,
@@ -359,3 +366,167 @@ def build_rule_plain_text(rules: List[Dict[str, Any]]) -> str:
         priority_tag = f"[{r['priority'].upper()}]"
         lines.append(f"{priority_tag} {r['title']}\n  {r['description']}")
     return "\n".join(lines)
+
+
+async def evaluate_delivery_package(db: AsyncSession, package_id: int) -> List[Dict[str, Any]]:
+    """评估交付包完整性。"""
+    from app.models.delivery_package import DeliveryPackage
+    from app.core.error_codes import ERROR_CODES
+    from app.core.exception_handlers import BusinessException
+
+    result = await db.execute(
+        select(DeliveryPackage).where(DeliveryPackage.id == package_id)
+    )
+    pkg = result.scalar_one_or_none()
+    if not pkg:
+        raise BusinessException(
+            status_code=404,
+            detail=ERROR_CODES["DELIVERY_QC_NO_PACKAGE"],
+            code="DELIVERY_QC_NO_PACKAGE",
+        )
+
+    suggestions: List[Dict[str, Any]] = []
+
+    has_model = await _has_model_version(db, package_id)
+    if not has_model:
+        suggestions.append(_build_suggestion(
+            decision_type="delivery_qc",
+            suggestion_type=SUGGESTION_TYPE_DELIVERY_MISSING_MODEL,
+            title="交付包缺少模型版本",
+            description=f"交付包「{pkg.name}」未关联任何模型版本，请补充。",
+            priority="high",
+            suggested_action="create_todo",
+            source_rule="delivery_missing_model",
+        ))
+
+    has_dataset = await _has_dataset_version(db, package_id)
+    if not has_dataset:
+        suggestions.append(_build_suggestion(
+            decision_type="delivery_qc",
+            suggestion_type=SUGGESTION_TYPE_DELIVERY_MISSING_DATASET,
+            title="交付包缺少数据集版本",
+            description=f"交付包「{pkg.name}」未关联任何数据集版本，请补充。",
+            priority="medium",
+            suggested_action="create_todo",
+            source_rule="delivery_missing_dataset",
+        ))
+
+    has_acceptance = await _has_acceptance_record(db, package_id, pkg)
+    if not has_acceptance:
+        suggestions.append(_build_suggestion(
+            decision_type="delivery_qc",
+            suggestion_type=SUGGESTION_TYPE_DELIVERY_MISSING_ACCEPTANCE,
+            title="交付包缺少验收记录",
+            description=f"交付包「{pkg.name}」尚未完成验收，请安排验收。",
+            priority="high",
+            suggested_action="create_reminder",
+            source_rule="delivery_missing_acceptance",
+        ))
+
+    has_deprecated = await _has_deprecated_model(db, package_id)
+    if has_deprecated:
+        suggestions.append(_build_suggestion(
+            decision_type="delivery_qc",
+            suggestion_type=SUGGESTION_TYPE_DELIVERY_VERSION_MISMATCH,
+            title="交付包关联了已废弃的模型版本",
+            description=f"交付包「{pkg.name}」关联的模型版本已废弃，请更新。",
+            priority="high",
+            suggested_action="create_todo",
+            source_rule="delivery_version_mismatch",
+        ))
+
+    is_empty = await _is_empty_package(db, package_id, pkg)
+    if is_empty:
+        suggestions.append(_build_suggestion(
+            decision_type="delivery_qc",
+            suggestion_type=SUGGESTION_TYPE_DELIVERY_EMPTY_PACKAGE,
+            title="交付包为空",
+            description=f"交付包「{pkg.name}」无任何关键内容，请补充交付物。",
+            priority="high",
+            suggested_action="create_todo",
+            source_rule="delivery_empty_package",
+        ))
+
+    if not pkg.project_id:
+        suggestions.append(_build_suggestion(
+            decision_type="delivery_qc",
+            suggestion_type=SUGGESTION_TYPE_DELIVERY_UNBOUND_PROJECT,
+            title="交付包未绑定项目",
+            description=f"交付包「{pkg.name}」未绑定有效项目，请关联项目。",
+            priority="high",
+            suggested_action="create_todo",
+            source_rule="delivery_unbound_project",
+        ))
+
+    return suggestions
+
+
+async def _has_model_version(db: AsyncSession, package_id: int) -> bool:
+    try:
+        from app.models.delivery_package import PackageModelVersion
+        result = await db.execute(
+            select(func.count(PackageModelVersion.id)).where(
+                PackageModelVersion.package_id == package_id
+            )
+        )
+        return (result.scalar() or 0) > 0
+    except Exception:
+        return False
+
+
+async def _has_dataset_version(db: AsyncSession, package_id: int) -> bool:
+    try:
+        from app.models.delivery_package import PackageDatasetVersion
+        result = await db.execute(
+            select(func.count(PackageDatasetVersion.id)).where(
+                PackageDatasetVersion.package_id == package_id
+            )
+        )
+        return (result.scalar() or 0) > 0
+    except Exception:
+        return False
+
+
+async def _has_acceptance_record(db: AsyncSession, package_id: int, pkg) -> bool:
+    if getattr(pkg, "status", None) == "accepted":
+        return True
+    try:
+        from app.models.acceptance import Acceptance
+        result = await db.execute(
+            select(func.count(Acceptance.id)).where(
+                Acceptance.delivery_package_id == package_id,
+                Acceptance.is_deleted == False,
+            )
+        )
+        return (result.scalar() or 0) > 0
+    except Exception:
+        return False
+
+
+async def _has_deprecated_model(db: AsyncSession, package_id: int) -> bool:
+    try:
+        from app.models.delivery_package import PackageModelVersion
+        from app.models.model_version import ModelVersion
+        result = await db.execute(
+            select(func.count(ModelVersion.id))
+            .join(PackageModelVersion, PackageModelVersion.model_version_id == ModelVersion.id)
+            .where(
+                PackageModelVersion.package_id == package_id,
+                ModelVersion.status == "deprecated",
+            )
+        )
+        return (result.scalar() or 0) > 0
+    except Exception:
+        return False
+
+
+async def _is_empty_package(db: AsyncSession, package_id: int, pkg) -> bool:
+    has_model = await _has_model_version(db, package_id)
+    has_dataset = await _has_dataset_version(db, package_id)
+    has_desc = bool(getattr(pkg, "description", None))
+    return not has_model and not has_dataset and not has_desc
+
+
+async def run_delivery_qc_rules(db: AsyncSession, package_id: int) -> List[Dict[str, Any]]:
+    """运行交付质检规则（组合）。"""
+    return await evaluate_delivery_package(db, package_id)

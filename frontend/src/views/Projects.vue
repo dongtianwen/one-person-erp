@@ -86,6 +86,10 @@
           <template #default="{ row }">
             <div class="action-btns">
               <el-button link type="primary" size="small" @click="openDetail(row)">管理</el-button>
+              <el-button link type="success" size="small" @click="openAgentAnalysis(row)">
+                <el-icon><Cpu /></el-icon>
+                AI 分析
+              </el-button>
               <el-button link type="primary" size="small" @click="editProject(row)">编辑</el-button>
               <el-dropdown trigger="click" placement="bottom-end">
                 <el-button link type="info" size="small">
@@ -161,6 +165,35 @@
             关闭项目
           </el-button>
           <el-tag v-else type="success" size="small" round>已完成</el-tag>
+          <!-- v2.1 生成项目复盘报告 -->
+          <el-button
+            v-if="detailProject.status === 'completed'"
+            type="success"
+            size="small"
+            plain
+            @click="handleGenerateProjectReport"
+            :loading="generatingProjectReport"
+          >
+            生成项目复盘报告
+          </el-button>
+          <el-button
+            v-if="detailProject.status === 'completed'"
+            size="small"
+            @click="showProjectReportHistory"
+          >
+            历史报告
+          </el-button>
+          <!-- v1.12 一键生成报价按钮 -->
+          <el-button
+            v-if="hasCustomer(detailProject) && canGenerateQuotation(detailProject.status)"
+            type="primary"
+            size="small"
+            plain
+            @click="handleGenerateQuotation"
+          >
+            <el-icon><Document /></el-icon>
+            一键生成报价
+          </el-button>
         </div>
       </div>
 
@@ -456,15 +489,91 @@
         </el-button>
       </template>
     </el-dialog>
+    <!-- v2.0 AI Agent 分析结果弹窗 -->
+    <el-dialog
+      v-model="showAgentDialog"
+      :title="agentProject ? `AI 分析：${agentProject.name}` : 'AI 分析'"
+      width="680px"
+      destroy-on-close
+      append-to-body
+    >
+      <div v-if="agentRunning" style="text-align: center; padding: 40px 0;">
+        <el-icon class="is-loading" :size="36" style="color: var(--el-color-primary);"><Loading /></el-icon>
+        <p style="margin-top: 16px; color: var(--el-text-color-primary); font-weight: bold;">AI 正在深度分析项目数据，请稍候...</p>
+        <p style="margin-top: 8px; color: var(--el-text-color-secondary); font-family: monospace;">已用时：{{ formattedTimer }}</p>
+        <el-button type="danger" plain size="small" style="margin-top: 16px;" @click="cancelAgentAnalysis">
+          终止分析
+        </el-button>
+      </div>
+      <div v-else-if="agentSuggestions.length === 0 && !agentRunning" style="text-align: center; padding: 40px 0;">
+        <el-empty description="未发现需要关注的问题" />
+      </div>
+      <el-table v-else :data="agentSuggestions" stripe>
+        <el-table-column prop="priority" label="级别" width="70">
+          <template #default="{ row }">
+            <el-tag :type="{ high: 'danger', medium: 'warning', low: 'info' }[row.priority]" size="small">
+              {{ { high: '高', medium: '中', low: '低' }[row.priority] || row.priority }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="title" label="标题" min-width="120" />
+        <el-table-column label="描述" min-width="320">
+          <template #default="{ row }">
+            <div style="white-space: pre-wrap; line-height: 1.6; padding: 4px 0;">
+              {{ row.description }}
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="来源" width="80">
+          <template #default="{ row }">
+            <el-tag :type="row.llm_enhanced ? 'success' : 'info'" size="small">
+              {{ row.llm_enhanced ? '本地AI' : '规则' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="showAgentDialog = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="projectReportHistoryVisible" title="历史报告" width="600px" destroy-on-close>
+      <el-table :data="projectReportHistory" size="small" v-if="projectReportHistory.length">
+        <el-table-column label="生成时间" width="160">
+          <template #default="{ row }">{{ row.generated_at || row.created_at }}</template>
+        </el-table-column>
+        <el-table-column prop="llm_provider" label="Provider" width="100" />
+        <el-table-column prop="status" label="状态" width="80">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'completed' ? 'success' : row.status === 'failed' ? 'danger' : 'warning'" size="small">{{ row.status }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="version_no" label="版本" width="60" />
+        <el-table-column label="操作" width="120">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="viewProjectReport(row.id)">查看</el-button>
+            <el-button link type="danger" size="small" @click="handleDeleteProjectReport(row.id)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div v-else style="text-align: center; padding: 40px 0; color: #909399;">暂无历史报告</div>
+    </el-dialog>
+
+    <el-dialog v-model="projectReportContentVisible" title="报告内容" width="700px" destroy-on-close>
+      <div style="white-space: pre-wrap; line-height: 1.8; font-size: 14px; max-height: 60vh; overflow-y: auto;">{{ projectReportContent }}</div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, MoreFilled, CircleCheck, CircleClose } from '@element-plus/icons-vue'
+import { Plus, Search, MoreFilled, CircleCheck, CircleClose, Document, Cpu, Loading } from '@element-plus/icons-vue'
 import { getProjects, createProject, updateProject, deleteProject, getTasks, createTask, updateTask, getMilestones, createMilestone, updateMilestone } from '../api/projects'
 import { getCustomers } from '../api/customers'
+import { createQuotationFromProject } from '../api/quotations'
+import { runProjectManagement, getAgentRun } from '../api/agents'
+import { generateReport, listReports, getReport, deleteReport as deleteReportApi } from '../api/reports'
 import api from '../api/index'
 import * as v17Api from '../api/v17'
 import { refreshProjectProfit as apiRefreshProfit } from '../api/v19'
@@ -502,8 +611,16 @@ const statusTypes = { requirements: 'info', design: '', development: 'primary', 
 const showDetail = ref(false)
 const detailProject = ref(null)
 const detailTab = ref('tasks')
+const generatingProjectReport = ref(false)
+const projectReportHistoryVisible = ref(false)
+const projectReportHistory = ref([])
+const projectReportContentVisible = ref(false)
+const projectReportContent = ref('')
 const tasks = ref([])
 const milestones = ref([])
+
+// Quotation generation
+const generatingQuotation = ref(false)
 
 // Task form
 const showTaskForm = ref(false)
@@ -746,7 +863,173 @@ const handleClose = async () => {
   }
 }
 
+// v1.12 一键生成报价
+const hasCustomer = (project) => {
+  return project.customer_id != null
+}
+
+const canGenerateQuotation = (status) => {
+  // 只有当项目有客户时才能生成报价
+  return hasCustomer(detailProject.value)
+}
+
+const handleGenerateQuotation = async () => {
+  try {
+    generatingQuotation.value = true
+    const response = await createQuotationFromProject(detailProject.value.id)
+    ElMessage.success('报价草稿已创建')
+
+    // 跳转到报价单详情
+    showDetail.value = false
+    await loadData()
+  } catch (err) {
+    if (err !== 'cancel') {
+      const errorData = err.response?.data || {}
+      const errorCode = errorData.code || ''
+      const errorMsg = errorData.detail || err.message || '生成报价失败'
+      // 检查是否是草稿已存在的错误
+      if (errorCode === 'DRAFT_ALREADY_EXISTS') {
+        const quoteNo = errorData.quote_no || ''
+        const quotationId = errorData.quotation_id
+        try {
+          const confirmed = await ElMessageBox.confirm(
+            `该项目已有生成报价草稿（编号 ${quoteNo}），是否跳转查看？`,
+            '已有草稿',
+            { type: 'warning' }
+          )
+          if (confirmed && quotationId) {
+            // 跳转到报价单列表并打开对应详情
+            const router = (await import('vue-router')).useRouter()
+            router.push({ path: '/quotations', query: { quotation_id: quotationId, open_detail: '1' } })
+          }
+        } catch {
+          // 用户取消
+        }
+      } else {
+        ElMessage.error(errorMsg)
+      }
+    }
+  } finally {
+    generatingQuotation.value = false
+  }
+}
+
+// --- v2.0 项目级 AI 分析 ---
+const showAgentDialog = ref(false)
+const agentProject = ref(null)
+const agentRunning = ref(false)
+const agentSuggestions = ref([])
+const agentTimer = ref(0)
+let agentTimerInterval = null
+
+const formattedTimer = computed(() => {
+  const m = Math.floor(agentTimer.value / 60).toString().padStart(2, '0')
+  const s = (agentTimer.value % 60).toString().padStart(2, '0')
+  return `${m}:${s}`
+})
+
+let currentAbortController = null
+
+const cancelAgentAnalysis = () => {
+  if (currentAbortController) {
+    currentAbortController.abort()
+    currentAbortController = null
+  }
+}
+
+const openAgentAnalysis = async (row) => {
+  agentProject.value = row
+  agentSuggestions.value = []
+  agentRunning.value = true
+  showAgentDialog.value = true
+  
+  agentTimer.value = 0
+  agentTimerInterval = setInterval(() => {
+    agentTimer.value++
+  }, 1000)
+
+  currentAbortController = new AbortController()
+
+  try {
+    const runRes = await runProjectManagement(row.id, { signal: currentAbortController.signal })
+    const runId = runRes.data.run_id
+    // 精确拉取本次执行生成的建议结果，避免和旧建议混淆
+    const detailRes = await getAgentRun(runId)
+    agentSuggestions.value = detailRes.data.suggestions || []
+    
+    if (agentSuggestions.value.length === 0) {
+      ElMessage.success('分析完成，未发现需要关注的问题')
+    } else {
+      ElMessage.success(`分析完成，共发现 ${agentSuggestions.value.length} 条建议`)
+    }
+  } catch (err) {
+    if (err.name === 'CanceledError' || err.message === 'canceled') {
+      ElMessage.warning('分析已终止')
+    } else {
+      console.error(err)
+      ElMessage.error('AI 分析失败，请稍后重试')
+    }
+    showAgentDialog.value = false
+  } finally {
+    agentRunning.value = false
+    currentAbortController = null
+    if (agentTimerInterval) {
+      clearInterval(agentTimerInterval)
+      agentTimerInterval = null
+    }
+  }
+}
+
 onMounted(() => { loadData(); loadCustomers() })
+
+const handleGenerateProjectReport = async () => {
+  if (!detailProject.value) return
+  generatingProjectReport.value = true
+  try {
+    const { data } = await generateReport('report_project', detailProject.value.id)
+    if (data.content) {
+      projectReportContent.value = data.content
+      projectReportContentVisible.value = true
+    }
+    ElMessage.success('项目复盘报告已生成')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.detail || '报告生成失败')
+  } finally {
+    generatingProjectReport.value = false
+  }
+}
+
+const showProjectReportHistory = async () => {
+  if (!detailProject.value) return
+  try {
+    const { data } = await listReports({ entity_type: 'project', entity_id: detailProject.value.id })
+    projectReportHistory.value = data.items || []
+    projectReportHistoryVisible.value = true
+  } catch (e) {
+    ElMessage.error('加载报告历史失败')
+  }
+}
+
+const viewProjectReport = async (id) => {
+  try {
+    const { data } = await getReport(id)
+    projectReportContent.value = data.content || '报告内容为空'
+    projectReportContentVisible.value = true
+  } catch (e) {
+    ElMessage.error('加载报告失败')
+  }
+}
+
+const handleDeleteProjectReport = async (id) => {
+  try {
+    await ElMessageBox.confirm('确认删除此报告？', '删除确认', { type: 'warning' })
+    await deleteReportApi(id)
+    ElMessage.success('报告已删除')
+    showProjectReportHistory()
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error('删除失败')
+  }
+}
 </script>
 
 <style scoped>

@@ -23,6 +23,8 @@ from app.api.endpoints import (
     exports,
     finance_export,
     reconciliation,
+    templates,
+    settings as settings_endpoint,
     requirements,
     acceptances,
     deliverables,
@@ -42,6 +44,11 @@ from app.api.endpoints import (
     training_experiments,
     model_versions,
     delivery_packages,
+    templates,
+    agents,
+    agent_confirmations,
+    qa,
+    reports,
 )
 from app.database import async_session
 from app.api.endpoints.auth import create_default_admin
@@ -110,8 +117,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="数标云管 - 一体化业务管理系统 API",
-    version="1.2.0",
+    description="天枢 - 一体化业务管理系统 API",
+    version="1.13.0",
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
@@ -138,6 +145,7 @@ app.include_router(changelogs.router, prefix="/api/v1/changelogs", tags=["变更
 app.include_router(reminders.router, prefix="/api/v1/reminders", tags=["提醒管理"])
 app.include_router(file_indexes.router, prefix="/api/v1/file-indexes", tags=["文件管理"])
 app.include_router(quotations.router, prefix="/api/v1/quotations", tags=["报价单管理"])
+app.include_router(templates.router, prefix="/api/v1/templates", tags=["模板管理"])
 app.include_router(customer_assets.router, prefix="/api/v1/customers/{customer_id}/assets", tags=["客户资产"])
 app.include_router(cashflow.router, prefix="/api/v1/cashflow", tags=["现金流预测"])
 app.include_router(invoices.router, prefix="/api/v1/invoices", tags=["发票管理"])
@@ -177,6 +185,18 @@ app.include_router(training_experiments.router, prefix="/api/v1/training-experim
 app.include_router(model_versions.router, prefix="/api/v1/model-versions", tags=["模型版本"])
 # v1.11 交付包
 app.include_router(delivery_packages.router, prefix="/api/v1/delivery-packages", tags=["交付包"])
+
+# v1.12 模板管理
+app.include_router(templates.router, prefix="/api/v1/templates", tags=["模板管理"])
+
+# v2.0 AI Agent 闭环
+app.include_router(agents.router, prefix="/api/v1/agents", tags=["AI Agent"])
+app.include_router(agent_confirmations.router, prefix="/api/v1/agents", tags=["AI Agent 确认"])
+app.include_router(qa.router, prefix="/api/v1/qa", tags=["经营问答"])
+app.include_router(reports.router, prefix="/api/v1/reports", tags=["深度报告"])
+
+# v1.13 公司设置（乙方信息）
+app.include_router(settings_endpoint.router, prefix="/api/v1/settings", tags=["公司设置"])
 
 
 @app.get("/health")

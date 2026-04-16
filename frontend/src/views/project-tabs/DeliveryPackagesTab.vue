@@ -64,11 +64,12 @@
           <span class="mono">{{ row.delivered_at || '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="240" fixed="right">
+      <el-table-column label="操作" width="300" fixed="right">
         <template #default="{ row }">
           <el-button link size="small" type="primary" @click="openEdit(row)">编辑</el-button>
           <el-button v-if="row.status === 'ready'" link size="small" type="success" @click="handleDeliver(row)">交付</el-button>
           <el-button v-if="row.status === 'delivered'" link size="small" type="warning" @click="openAcceptance(row)">验收</el-button>
+          <el-button link size="small" type="info" @click="handleRunQc(row)" :loading="qcRunning === row.id">质检</el-button>
           <el-button v-if="row.status !== 'accepted'" link size="small" type="danger" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -144,6 +145,28 @@
         <el-button type="primary" @click="handleLinkDatasetSubmit" :disabled="!selectedDatasets.length">确认关联</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="qcResultVisible" title="质检结果" width="600px" destroy-on-close append-to-body>
+      <div v-if="qcSuggestions.length === 0" style="text-align: center; padding: 30px; color: #67c23a; font-size: 16px;">
+        ✅ 质检通过，交付包完整
+      </div>
+      <el-table v-else :data="qcSuggestions" size="small">
+        <el-table-column prop="priority" label="优先级" width="80">
+          <template #default="{ row }">
+            <el-tag :type="row.priority === 'high' ? 'danger' : row.priority === 'medium' ? 'warning' : 'info'" size="small">{{ row.priority }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="title" label="问题" width="180" />
+        <el-table-column prop="description" label="描述" min-width="250">
+          <template #default="{ row }">
+            <div style="white-space: pre-wrap; line-height: 1.5;">{{ row.description }}</div>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="qcResultVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -160,6 +183,7 @@ import {
   linkPackageDatasetVersion, unlinkPackageDatasetVersion,
   getModelVersions, getDatasets, getDatasetVersions
 } from '../../api/v111'
+import { runDeliveryQc } from '../../api/agents'
 
 const props = defineProps({ projectId: { type: Number, required: true } })
 const packages = ref([])
@@ -194,6 +218,9 @@ const linkDatasetTarget = ref(null)
 const availableDatasetVersions = ref([])
 const selectedDatasets = ref([])
 const datasetTableRef = ref(null)
+const qcRunning = ref(null)
+const qcResultVisible = ref(false)
+const qcSuggestions = ref([])
 
 const hasTraceData = (row) => {
   const t = row._traceability
@@ -376,6 +403,22 @@ const handleUnlinkDataset = async (pkg, dv) => {
 }
 
 watch(() => props.projectId, () => loadData(), { immediate: true })
+
+const handleRunQc = async (row) => {
+  qcRunning.value = row.id
+  try {
+    const { data } = await runDeliveryQc(row.id)
+    qcSuggestions.value = data.suggestions || []
+    qcResultVisible.value = true
+    if (qcSuggestions.value.length === 0) {
+      ElMessage.success('✅ 质检通过，交付包完整')
+    }
+  } catch (e) {
+    ElMessage.error(e.response?.data?.detail || '质检运行失败')
+  } finally {
+    qcRunning.value = null
+  }
+}
 </script>
 
 <style scoped>

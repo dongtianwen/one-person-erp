@@ -39,7 +39,7 @@ REQUIREMENT_VERSION_PREFIX = "v"
 REQUIREMENT_SUMMARY_MAX_LENGTH = 10000
 CHANGE_ORDER_PREFIX = "BG"
 MAINTENANCE_REMINDER_DAYS_BEFORE = 30
-NOTES_SEPARATOR = "\n"   # notes 追加时的分隔符
+NOTES_SEPARATOR = "\n"  # notes 追加时的分隔符
 
 # ── 变更单状态流转白名单（精确定义，不得自行扩展） ──────
 # v1.5 合同变更单状态流转
@@ -81,7 +81,7 @@ CHANGE_ORDER_STATUS_WHITELIST: list[str] = ["pending", "confirmed", "rejected", 
 CHANGE_ORDER_VALID_TRANSITIONS_V17: dict[str, list[str]] = {
     "pending": ["confirmed", "rejected", "cancelled"],
     "confirmed": [],  # 终态
-    "rejected": [],   # 终态
+    "rejected": [],  # 终态
     "cancelled": [],  # 终态
 }
 
@@ -154,9 +154,9 @@ GROSS_MARGIN_DECIMAL_PLACES: int = 4
 
 # ── v1.10 帮助与引导 ────────────────────────────────────────────
 HELP_CONTENT_VERSION: str = "1.10"
-HELP_MAX_NEXT_STEPS: int = 5          # 每条错误帮助最多显示步骤数
-HELP_FIELD_TIP_MAX_LENGTH: int = 30   # 字段提示最大字符数（中文）
-HELP_PAGE_TIP_MAX_ITEMS: int = 5      # 页面帮助抽屉最多条目数
+HELP_MAX_NEXT_STEPS: int = 5  # 每条错误帮助最多显示步骤数
+HELP_FIELD_TIP_MAX_LENGTH: int = 30  # 字段提示最大字符数（中文）
+HELP_PAGE_TIP_MAX_ITEMS: int = 5  # 页面帮助抽屉最多条目数
 
 # ── v1.11 数据标注与模型开发交付台账 ──────────────────────────────
 # 数据集版本
@@ -164,7 +164,14 @@ DATASET_VERSION_NO_PATTERN: str = r"^v\d+\.\d+$"
 DATASET_VERSION_STATUS_WHITELIST: list[str] = ["draft", "ready", "in_use", "archived"]
 DATASET_TYPE_WHITELIST: list[str] = ["image", "text", "audio", "video", "multimodal", "other"]
 DATASET_VERSION_FROZEN_STATUSES: list[str] = ["ready", "in_use", "archived"]
-DATASET_VERSION_FROZEN_FIELDS: list[str] = ["version_no", "dataset_id", "sample_count", "file_path", "data_source", "label_schema_version"]
+DATASET_VERSION_FROZEN_FIELDS: list[str] = [
+    "version_no",
+    "dataset_id",
+    "sample_count",
+    "file_path",
+    "data_source",
+    "label_schema_version",
+]
 
 # 模型版本
 MODEL_VERSION_NO_PATTERN: str = r"^v\d+\.\d+\.\d+$"
@@ -176,7 +183,14 @@ MODEL_VERSION_FROZEN_FIELDS: list[str] = ["version_no", "experiment_id", "name",
 EXPERIMENT_FROZEN_FIELDS: list[str] = ["project_id", "framework", "hyperparameters"]
 
 # 标注任务
-ANNOTATION_TASK_STATUS_WHITELIST: list[str] = ["pending", "in_progress", "quality_check", "rework", "completed", "cancelled"]
+ANNOTATION_TASK_STATUS_WHITELIST: list[str] = [
+    "pending",
+    "in_progress",
+    "quality_check",
+    "rework",
+    "completed",
+    "cancelled",
+]
 ANNOTATION_TASK_VALID_TRANSITIONS: dict[str, list[str]] = {
     "pending": ["in_progress", "cancelled"],
     "in_progress": ["quality_check", "cancelled"],
@@ -197,3 +211,197 @@ DELIVERY_PACKAGE_VALID_TRANSITIONS: dict[str, list[str]] = {
 }
 ACCEPTANCE_TYPE_DATASET: str = "dataset"
 ACCEPTANCE_TYPE_MODEL: str = "model"
+
+# ── v1.12 报价合同生成与模板系统 ─────────────────────────────────────
+# 模板类型
+TEMPLATE_TYPE_QUOTATION: str = "quotation"
+TEMPLATE_TYPE_CONTRACT: str = "contract"
+TEMPLATE_TYPE_REPORT_PROJECT: str = "report_project"
+TEMPLATE_TYPE_REPORT_CUSTOMER: str = "report_customer"
+TEMPLATE_TYPE_WHITELIST: list[str] = [TEMPLATE_TYPE_QUOTATION, TEMPLATE_TYPE_CONTRACT, TEMPLATE_TYPE_REPORT_PROJECT, TEMPLATE_TYPE_REPORT_CUSTOMER]
+
+# 报价单变量
+QUOTATION_REQUIRED_VARS: list[str] = [
+    "quotation_no",
+    "customer_name",
+    "project_name",
+    "requirement_summary",
+    "estimate_days",
+    "total_amount",
+    "valid_until",
+    "created_date",
+]
+
+QUOTATION_OPTIONAL_VARS: list[str] = [
+    "daily_rate",
+    "direct_cost",
+    "risk_buffer_rate",
+    "tax_rate",
+    "tax_amount",
+    "discount_amount",
+    "subtotal_amount",
+    "notes",
+    "company_name",
+    "payment_terms",
+]
+
+# 合同变量
+CONTRACT_REQUIRED_VARS: list[str] = [
+    "contract_no",
+    "customer_name",
+    "project_name",
+    "total_amount",
+    "sign_date",
+    "company_name",
+    "quotation_no",
+]
+
+CONTRACT_OPTIONAL_VARS: list[str] = [
+    "payment_terms",
+    "project_scope",
+    "deliverables_desc",
+    "acceptance_criteria",
+    "liability_clause",
+    "notes",
+]
+
+# 内容冻结状态
+QUOTATION_CONTENT_FROZEN_STATUS: str = "accepted"  # 报价单被接受时内容冻结
+CONTRACT_CONTENT_FROZEN_STATUS: str = "active"  # 合同被激活时内容冻结
+
+# 内容生成状态
+CONTENT_STATUS_EMPTY: str = ""  # 无内容
+CONTENT_STATUS_GENERATED: str = "generated"  # 已生成
+CONTENT_STATUS_EDITED: str = "edited"  # 手工编辑
+CONTENT_STATUS_FROZEN: str = "frozen"  # 已冻结（不可编辑/生成）
+
+# ── v2.0 AI Agent 闭环 ─────────────────────────────────────────────
+# LLM Provider
+LLM_PROVIDER_NONE: str = "none"
+LLM_PROVIDER_LOCAL: str = "local"
+LLM_PROVIDER_API: str = "api"
+LLM_PROVIDER_WHITELIST: list[str] = [LLM_PROVIDER_NONE, LLM_PROVIDER_LOCAL, LLM_PROVIDER_API]
+
+# Agent 类型
+AGENT_TYPE_BUSINESS_DECISION: str = "business_decision"
+AGENT_TYPE_PROJECT_MANAGEMENT: str = "project_management"
+AGENT_TYPE_DELIVERY_QC: str = "delivery_qc"
+AGENT_TYPE_WHITELIST: list[str] = [AGENT_TYPE_BUSINESS_DECISION, AGENT_TYPE_PROJECT_MANAGEMENT, AGENT_TYPE_DELIVERY_QC]
+
+# Agent 运行状态
+AGENT_RUN_STATUS_WHITELIST: list[str] = ["running", "completed", "failed"]
+AGENT_TRIGGER_TYPE_WHITELIST: list[str] = ["manual", "scheduled"]
+
+# 建议类型
+SUGGESTION_TYPE_OVERDUE_PAYMENT: str = "overdue_payment"
+SUGGESTION_TYPE_PROFIT_ANOMALY: str = "profit_anomaly"
+SUGGESTION_TYPE_MILESTONE_RISK: str = "milestone_risk"
+SUGGESTION_TYPE_CASHFLOW_WARNING: str = "cashflow_warning"
+SUGGESTION_TYPE_TASK_DELAY: str = "task_delay"
+SUGGESTION_TYPE_CHANGE_IMPACT: str = "change_impact"
+SUGGESTION_TYPE_DELIVERY_MISSING_MODEL: str = "delivery_missing_model"
+SUGGESTION_TYPE_DELIVERY_MISSING_DATASET: str = "delivery_missing_dataset"
+SUGGESTION_TYPE_DELIVERY_MISSING_ACCEPTANCE: str = "delivery_missing_acceptance"
+SUGGESTION_TYPE_DELIVERY_VERSION_MISMATCH: str = "delivery_version_mismatch"
+SUGGESTION_TYPE_DELIVERY_EMPTY_PACKAGE: str = "delivery_empty_package"
+SUGGESTION_TYPE_DELIVERY_UNBOUND_PROJECT: str = "delivery_unbound_project"
+SUGGESTION_TYPE_WHITELIST: list[str] = [
+    SUGGESTION_TYPE_OVERDUE_PAYMENT,
+    SUGGESTION_TYPE_PROFIT_ANOMALY,
+    SUGGESTION_TYPE_MILESTONE_RISK,
+    SUGGESTION_TYPE_CASHFLOW_WARNING,
+    SUGGESTION_TYPE_TASK_DELAY,
+    SUGGESTION_TYPE_CHANGE_IMPACT,
+    SUGGESTION_TYPE_DELIVERY_MISSING_MODEL,
+    SUGGESTION_TYPE_DELIVERY_MISSING_DATASET,
+    SUGGESTION_TYPE_DELIVERY_MISSING_ACCEPTANCE,
+    SUGGESTION_TYPE_DELIVERY_VERSION_MISMATCH,
+    SUGGESTION_TYPE_DELIVERY_EMPTY_PACKAGE,
+    SUGGESTION_TYPE_DELIVERY_UNBOUND_PROJECT,
+]
+
+# 建议状态
+SUGGESTION_STATUS_WHITELIST: list[str] = ["pending", "confirmed", "rejected"]
+
+# 动作类型
+ACTION_TYPE_CREATE_TODO: str = "create_todo"
+ACTION_TYPE_CREATE_REMINDER: str = "create_reminder"
+ACTION_TYPE_GENERATE_REPORT: str = "generate_report"
+ACTION_TYPE_NONE: str = "none"
+ACTION_TYPE_WHITELIST: list[str] = [
+    ACTION_TYPE_CREATE_TODO,
+    ACTION_TYPE_CREATE_REMINDER,
+    ACTION_TYPE_GENERATE_REPORT,
+    ACTION_TYPE_NONE,
+]
+
+# 动作状态
+ACTION_STATUS_WHITELIST: list[str] = ["pending", "executed", "failed"]
+
+# 决策类型
+DECISION_TYPE_WHITELIST: list[str] = ["accepted", "rejected", "modified"]
+
+# 优先级
+PRIORITY_WHITELIST: list[str] = ["high", "medium", "low"]
+
+# 规则引擎阈值
+RULE_OVERDUE_PAYMENT_WARN_DAYS: int = 0  # payment_due_date < 今日即为逾期
+RULE_CUSTOMER_OVERDUE_WARN_THRESHOLD: int = 1  # 逾期笔数 >= 1 → warning
+RULE_CUSTOMER_OVERDUE_HIGH_THRESHOLD: int = 3  # 逾期笔数 >= 3 → high
+RULE_CUSTOMER_OVERDUE_HIGH_RATIO: float = 0.30  # 逾期金额/合同总额 >= 30% → high
+RULE_PROFIT_ANOMALY_DROP_THRESHOLD: float = 0.30  # 利润率下降 >= 30% → anomaly
+RULE_MILESTONE_RISK_DAYS: int = 7  # 距到期 <= 7 天且未完成 → risk
+RULE_TASK_DELAY_DAYS: int = 0  # due_date < 今日且未完成 → delay
+RULE_CASHFLOW_URGENT_WEEKS: int = 4  # 未来 4 周现金流为负 → urgent
+RULE_CASHFLOW_WARNING_WEEKS: int = 8  # 未来 8 周现金流为负 → warning
+
+# 反馈权重规则
+FEEDBACK_WEIGHT_RULES: dict[str, int] = {
+    "decision_type": 3,
+    "reason_code": 2,
+    "corrected_fields": 2,
+    "user_priority_override": 2,
+    "free_text_reason": 1,
+}
+
+# LLM 上下文最大记录数
+FEEDBACK_CONTEXT_MAX_RECORDS: int = 30
+LLM_RETRY_MAX_ATTEMPTS: int = 1
+LLM_TIMEOUT_SECONDS: int = 180
+
+# ── v2.1 模板类型（扩展 v1.12 白名单）────────────────────────────
+# (TEMPLATE_TYPE_REPORT_PROJECT / TEMPLATE_TYPE_REPORT_CUSTOMER 已在 v1.12 区块定义)
+
+# ── v2.1 报告相关 ──────────────────────────────────────────────
+REPORT_TYPE_PROJECT: str = "report_project"
+REPORT_TYPE_CUSTOMER: str = "report_customer"
+REPORT_TYPE_WHITELIST: list[str] = [REPORT_TYPE_PROJECT, REPORT_TYPE_CUSTOMER]
+
+REPORT_STATUS_GENERATING: str = "generating"
+REPORT_STATUS_COMPLETED: str = "completed"
+REPORT_STATUS_FAILED: str = "failed"
+
+PROJECT_REPORT_LLM_VARS: list[str] = [
+    "analysis_summary",
+    "risk_retrospective",
+    "improvement_suggestions",
+]
+CUSTOMER_REPORT_LLM_VARS: list[str] = [
+    "value_assessment",
+    "relationship_summary",
+    "next_action_suggestions",
+]
+
+REPORT_LLM_FALLBACK_TEXT: str = "（AI 分析不可用，请手动补充）"
+
+# ── v2.1 Agent 类型（扩展 v2.0 白名单）────────────────────────────
+# (AGENT_TYPE_DELIVERY_QC 已在 v2.0 区块定义)
+
+# ── v2.1 质检建议类型（新增）──────────────────────────────────────
+# (SUGGESTION_TYPE_DELIVERY_* 已在 v2.0 建议类型区块定义)
+
+# ── v2.1 自由问答 ──────────────────────────────────────────────
+QA_CONTEXT_MONTHS: int = 3
+QA_CONTEXT_MAX_PROJECTS: int = 10
+QA_CONTEXT_MAX_TOKENS_ESTIMATE: int = 2000
+QA_MAX_HISTORY_TURNS: int = 10

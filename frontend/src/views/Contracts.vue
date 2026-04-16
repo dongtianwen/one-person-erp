@@ -148,6 +148,42 @@
           <span class="mono amount-cell">¥{{ (detailContract.amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) }}</span>
         </div>
       </div>
+      <!-- 内容生成区域（独立 Tab 之前） -->
+      <div v-if="shouldShowGenerateButton(detailContract?.status)" class="content-section" style="margin: 0 16px 16px;">
+        <!-- 冻结状态提示 -->
+        <el-alert v-if="detailContract?.generated_content && isContentFrozen(detailContract?.status)" type="warning" :closable="false" style="margin-bottom: 12px;">
+          <template #title>内容已冻结，不可重新生成或编辑</template>
+        </el-alert>
+
+        <!-- 已有内容 -->
+        <div v-if="detailContract?.generated_content" class="content-display">
+          <div class="content-header">
+            <span class="content-label">生成内容：</span>
+            <span class="content-time">{{ detailContract.content_generated_at }}</span>
+          </div>
+          <pre class="content-body">{{ detailContract.generated_content }}</pre>
+          <div class="content-actions">
+            <el-button size="small" @click="openEditContent(detailContract)">
+              <el-icon><Edit /></el-icon>
+              手工编辑
+            </el-button>
+            <el-button size="small" @click="openPreview(detailContract)">
+              <el-icon><View /></el-icon>
+              预览
+            </el-button>
+          </div>
+        </div>
+
+        <!-- 无内容或新生成 -->
+        <div v-else class="content-empty">
+          <p class="empty-text">暂无生成内容</p>
+          <el-button type="primary" size="small" @click="handleGenerate(detailContract)">
+            <el-icon><MagicStick /></el-icon>
+            生成内容
+          </el-button>
+        </div>
+      </div>
+
       <el-tabs v-model="contractDetailTab">
         <!-- v1.8 发票 Tab -->
         <el-tab-pane label="发票" name="invoices">
@@ -202,18 +238,41 @@
         </template>
       </el-dialog>
     </el-dialog>
+
+    <!-- 预览对话框 -->
+    <el-dialog v-model="previewVisible" title="预览内容" width="80%" destroy-on-close>
+      <pre v-if="previewContent" class="preview-body">{{ previewContent }}</pre>
+      <el-button @click="previewVisible = false">关闭</el-button>
+    </el-dialog>
+
+    <!-- 编辑内容对话框 -->
+    <el-dialog v-model="editContentVisible" title="手工编辑内容" width="70%" destroy-on-close>
+      <el-input
+        v-model="editContent"
+        type="textarea"
+        :rows="20"
+        placeholder="请输入内容..."
+        style="width: 100%"
+        resize="vertical"
+      />
+      <template #footer>
+        <el-button @click="editContentVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveEditContent" :loading="saving">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { Plus, Search } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Search, Edit, View, MagicStick } from '@element-plus/icons-vue'
 import api from '../api'
 import { getCustomers } from '../api/customers'
 import { getProjects } from '../api/projects'
 import { getChangeOrders, createChangeOrder, patchChangeOrder, getChangeOrderDetail } from '../api/changeOrders'
+import { generateContractContent, previewContractContent } from '../api/contracts'
 import InvoicesTab from './contract-tabs/InvoicesTab.vue'
 import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 
@@ -244,6 +303,15 @@ const coForm = ref({ title: '', description: '', amount: 0 })
 
 const coStatusLabels = { draft: '草稿', sent: '已发送', confirmed: '已确认', in_progress: '执行中', completed: '已完成' }
 const coStatusColor = { draft: 'info', sent: '', confirmed: 'success', in_progress: 'primary', completed: '' }
+
+// 内容生成相关状态
+const previewVisible = ref(false)
+const previewContent = ref('')
+const editContentVisible = ref(false)
+const editContent = ref('')
+const saving = ref(false)
+
+const FROZEN_STATUSES = ['active', 'terminated']
 
 const route = useRoute()
 
@@ -309,12 +377,21 @@ onMounted(async () => {
   await loadData()
   loadCustomers()
   loadProjects()
-  // Handle navigation from ChangeOrderSummary
+  // Handle navigation from quotation conversion or ChangeOrderSummary
   if (route.query.contract_id) {
     const contractId = Number(route.query.contract_id)
     const contract = contracts.value.find(c => c.id === contractId)
     if (contract) {
       await openContractDetail(contract)
+    } else {
+      // If not found in current list, fetch directly
+      try {
+        const { data } = await api.get(`/contracts/${contractId}`)
+        detailContract.value = data
+        contractDetailTab.value = 'change-orders'
+        showContractDetail.value = true
+        await loadChangeOrders(data.id)
+      } catch { /* ignore */ }
     }
   }
 })
@@ -356,6 +433,74 @@ const handleCOStatusChange = async (row, targetStatus) => {
     ElMessage.success('状态已更新')
     await loadChangeOrders(detailContract.value.id)
   } catch { /* handled */ }
+}
+
+// 内容生成相关方法
+const shouldShowGenerateButton = (status) => {
+  return status === 'draft' || status === 'executing'
+}
+
+const isContentFrozen = (status) => {
+  return FROZEN_STATUSES.includes(status)
+}
+
+const fetchContractDetail = async (id) => {
+  try {
+    const { data } = await api.get(`/contracts/${id}`)
+    detailContract.value = data
+  } catch (error) {
+    ElMessage.error(error.message || '加载详情失败')
+  }
+}
+
+const handleGenerate = async (row) => {
+  try {
+    if (row.generated_content) {
+      await ElMessageBox.confirm(
+        '已有生成内容（含手工修改），确认覆盖？',
+        '覆盖确认',
+        { type: 'warning' }
+      )
+    }
+    await generateContractContent(row.id, true)
+    ElMessage.success('内容已生成')
+    await fetchContractDetail(row.id)
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '生成内容失败')
+    }
+  }
+}
+
+const openPreview = async (row) => {
+  try {
+    const { data } = await previewContractContent(row.id)
+    previewContent.value = data.content
+    previewVisible.value = true
+  } catch (error) {
+    ElMessage.error(error.message || '预览失败')
+  }
+}
+
+const openEditContent = (row) => {
+  if (row.generated_content) {
+    editContent.value = row.generated_content
+  }
+  editContentVisible.value = true
+}
+
+const saveEditContent = async () => {
+  try {
+    saving.value = true
+    await generateContractContent(detailContract.value.id, false, editContent.value)
+    ElMessage.success('内容已保存')
+    editContentVisible.value = false
+    await fetchContractDetail(detailContract.value.id)
+  } catch (error) {
+    ElMessage.error(error.message || '保存失败')
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -465,4 +610,81 @@ const handleCOStatusChange = async (row, targetStatus) => {
 .co-highlight { color: var(--el-color-primary); }
 .tab-toolbar { margin-bottom: 12px; }
 .empty-hint { color: #999; text-align: center; padding: 24px; }
+
+/* Content Section */
+.content-section {
+  background: var(--bg-soft, #f8fafc);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light, #e2e8f0);
+}
+
+.content-display {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.content-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-tertiary, #94a3b8);
+}
+
+.content-label {
+  font-weight: 600;
+}
+
+.content-time {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 11px;
+}
+
+.content-body {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  background: #fff;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-light, #e2e8f0);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.content-empty {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.empty-text {
+  font-size: 13px;
+  color: var(--text-tertiary, #94a3b8);
+  margin-bottom: 12px;
+}
+
+.content-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Preview Dialog */
+.preview-body {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: #fff;
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border-light, #e2e8f0);
+}
 </style>

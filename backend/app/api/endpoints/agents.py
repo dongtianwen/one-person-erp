@@ -42,6 +42,19 @@ async def run_project_management(
     return {"code": 0, "data": result}
 
 
+@router.post("/delivery-qc/run")
+async def run_delivery_qc(
+    package_id: int = Query(..., description="交付包ID"),
+    use_llm: bool = True,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """交付/质检 Agent——检查交付包完整性，生成建议。"""
+    from app.core.agent_service import run_agent
+    result = await run_agent(db, agent_type="delivery_qc", trigger_type="manual", use_llm=use_llm, package_id=package_id)
+    return {"code": 0, "data": result}
+
+
 @router.get("/runs")
 async def list_agent_runs(
     skip: int = Query(0, ge=0),

@@ -35,4 +35,36 @@ ERROR_CODES: dict[str, str] = {
     "PACKAGE_NOT_READY_CANNOT_DELIVER": "交付包未处于ready状态，不可交付",
     "PACKAGE_ALREADY_HAS_ACCEPTANCE": "交付包已有验收记录",
     "PACKAGE_ID_MISMATCH": "delivery_package_id与当前交付包不匹配",
+    # v1.12 报价合同生成与模板系统
+    "TEMPLATE_NOT_FOUND": "模板不存在",
+    "TEMPLATE_RENDER_FAILED": "模板渲染失败",
+    "TEMPLATE_MISSING_REQUIRED_VARS": "模板缺少必填变量",
+    "CONTENT_FROZEN": "内容已冻结，不可重新生成或编辑",
+    "CONTENT_ALREADY_EXISTS": "内容已存在，使用 force=true 覆盖",
+    "QUOTE_NO_QUOTATION_ID": "报价单ID缺失",
+    "TEMPLATE_IS_DEFAULT": "默认模板不可删除",
+    "DRAFT_ALREADY_EXISTS": "该项目已有报价草稿",
+    # v2.0 AI Agent 闭环
+    "OLLAMA_UNAVAILABLE": "Ollama 服务不可用",
+    "API_PROVIDER_UNAVAILABLE": "外部 LLM 服务不可用",
+    "LLM_PARSE_FAILED": "LLM 返回解析失败",
+    "AGENT_ALREADY_RUNNING": "同类型 Agent 正在运行中，请稍后重试",
+    "SUGGESTION_NOT_PENDING": "该建议已被处理，不可重复确认",
+    "ACTION_EXECUTION_FAILED": "动作执行失败",
+    # v2.1 自由问答
+    "QA_REQUIRES_API_PROVIDER": "经营问答功能需要接入外部大模型",
+    "QA_CONTEXT_BUILD_FAILED": "经营数据上下文构建失败",
+    # v2.1 深度报告
+    "REPORT_TYPE_NOT_SUPPORTED": "报告类型不在支持列表中",
+    "REPORT_ENTITY_NOT_FOUND": "生成报告的目标实体不存在",
+    "REPORT_LLM_FILL_FAILED": "AI 分析段落填充失败",
+    # v2.1 交付质检
+    "DELIVERY_QC_NO_PACKAGE": "指定的交付包不存在",
 }
+
+ERROR_QA_REQUIRES_API_PROVIDER = "QA_REQUIRES_API_PROVIDER"
+ERROR_QA_CONTEXT_BUILD_FAILED = "QA_CONTEXT_BUILD_FAILED"
+ERROR_REPORT_TYPE_NOT_SUPPORTED = "REPORT_TYPE_NOT_SUPPORTED"
+ERROR_REPORT_ENTITY_NOT_FOUND = "REPORT_ENTITY_NOT_FOUND"
+ERROR_REPORT_LLM_FILL_FAILED = "REPORT_LLM_FILL_FAILED"
+ERROR_DELIVERY_QC_NO_PACKAGE = "DELIVERY_QC_NO_PACKAGE"

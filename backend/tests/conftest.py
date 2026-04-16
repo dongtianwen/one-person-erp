@@ -10,6 +10,11 @@ from app.models.base import Base
 from app.models.user import User
 from app.models.template import Template
 from app.models.setting import SystemSetting
+from app.models.agent_run import AgentRun
+from app.models.agent_suggestion import AgentSuggestion
+from app.models.agent_action import AgentAction
+from app.models.human_confirmation import HumanConfirmation
+from app.models.todo import Todo
 from app.core.security import get_password_hash
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -22,6 +27,12 @@ async def db_session():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Create v2.0 agent tables
+        await conn.run_sync(AgentRun.metadata.create_all)
+        await conn.run_sync(AgentSuggestion.metadata.create_all)
+        await conn.run_sync(AgentAction.metadata.create_all)
+        await conn.run_sync(HumanConfirmation.metadata.create_all)
+        await conn.run_sync(Todo.metadata.create_all)
 
     async with async_session() as session:
         admin = User(

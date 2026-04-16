@@ -9,7 +9,7 @@
             <path d="M10 16L14 20L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </div>
-        <span v-if="!collapsed" class="logo-text">数标云管</span>
+        <span v-if="!collapsed" class="logo-text">天枢</span>
       </div>
 
       <el-menu
@@ -53,6 +53,14 @@
           <el-icon><Tickets /></el-icon>
           <template #title>报价单</template>
         </el-menu-item>
+        <el-menu-item index="/settings/templates">
+          <el-icon><DocumentCopy /></el-icon>
+          <template #title>模板管理</template>
+        </el-menu-item>
+        <el-menu-item index="/settings/company">
+          <el-icon><OfficeBuilding /></el-icon>
+          <template #title>公司设置</template>
+        </el-menu-item>
         <el-menu-item index="/exports">
           <el-icon><Download /></el-icon>
           <template #title>数据导出</template>
@@ -61,6 +69,15 @@
           <el-icon><Guide /></el-icon>
           <template #title>业务流程</template>
         </el-menu-item>
+        <el-sub-menu index="agents">
+          <template #title>
+            <el-icon><Cpu /></el-icon>
+            <span>AI Agent</span>
+          </template>
+          <el-menu-item index="/agents/decision">经营决策</el-menu-item>
+          <el-menu-item index="/agents/logs">运行日志</el-menu-item>
+          <el-menu-item index="/agents/settings">Agent 设置</el-menu-item>
+        </el-sub-menu>
       </el-menu>
 
       <div class="sidebar-bottom">
@@ -113,7 +130,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 import {
   DataAnalysis, User, Folder, Document, Money, Bell, FolderOpened, Tickets, Download, Guide,
-  ArrowDown, SwitchButton, Expand, Fold
+  ArrowDown, SwitchButton, Expand, Fold, DocumentCopy, OfficeBuilding, Cpu
 } from '@element-plus/icons-vue'
 import ErrorHelp from './ErrorHelp.vue'
 import { setErrorHelpRef } from '../api/index'
@@ -133,11 +150,16 @@ const pageTitles = {
   '/reminders': '提醒管理',
   '/file-indexes': '文件管理',
   '/quotations': '报价单管理',
+  '/settings/templates': '模板管理',
+  '/settings/company': '公司设置',
   '/exports': '数据导出',
   '/workflow-guide': '业务流程',
+  '/agents/decision': '经营决策 Agent',
+  '/agents/logs': 'Agent 运行日志',
+  '/agents/settings': 'Agent 设置',
 }
 
-const currentPageTitle = computed(() => pageTitles[route.path] || '数标云管')
+const currentPageTitle = computed(() => pageTitles[route.path] || '天枢')
 
 onMounted(() => {
   if (errorHelpRef.value) {
@@ -210,8 +232,21 @@ const handleCommand = (command) => {
 /* Override el-menu to fit our design */
 .sidebar-menu {
   flex: 1;
+  overflow-y: auto;
   border-right: none !important;
   padding: 8px;
+}
+
+/* Custom scrollbar for sidebar */
+.sidebar-menu::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-menu::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
 }
 
 .sidebar-menu .el-menu-item {

@@ -29,14 +29,17 @@ class BusinessException(HTTPException):
     继承 HTTPException 以确保被现有端点的 except HTTPException: raise 正确透传。
     """
 
-    def __init__(self, status_code: int, detail: str, code: str) -> None:
+    def __init__(self, status_code: int, detail: str, code: str, extra: dict | None = None) -> None:
         self.code = code
+        self.extra = extra or {}
         super().__init__(status_code=status_code, detail=detail)
 
 
 async def business_exception_handler(request: Request, exc: BusinessException) -> JSONResponse:
     """FastAPI 异常处理器：将 BusinessException 转为含 help 的 JSON 响应。"""
+    content = build_error_response(exc.detail, exc.code)
+    content.update(exc.extra)
     return JSONResponse(
         status_code=exc.status_code,
-        content=build_error_response(exc.detail, exc.code),
+        content=content,
     )

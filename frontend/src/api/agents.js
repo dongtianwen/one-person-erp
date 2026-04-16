@@ -10,6 +10,9 @@ export const runProjectManagement = (projectId, useLlM = true, config = {}) => {
   return api.post('/agents/project-management/run', null, { params, timeout: AGENT_RUN_TIMEOUT, ...config })
 }
 
+export const runDeliveryQc = (packageId, useLlM = true, config = {}) =>
+  api.post('/agents/delivery-qc/run', null, { params: { package_id: packageId, use_llm: useLlM }, timeout: AGENT_RUN_TIMEOUT, ...config })
+
 // 运行记录
 export const getAgentRuns = (params) => api.get('/agents/runs', { params })
 export const getAgentRun = (id) => api.get(`/agents/runs/${id}`)

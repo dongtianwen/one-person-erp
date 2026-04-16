@@ -13,7 +13,7 @@
             <circle cx="36" cy="12" r="4" fill="var(--brand-cyan)" opacity="0.6" />
           </svg>
         </div>
-        <h1 class="brand-title">数标云管</h1>
+        <h1 class="brand-title">天枢</h1>
         <p class="brand-tagline">智能项目管理 · 精准数据决策</p>
         <div class="brand-features">
           <div class="feature-item anim-fade-in-up stagger-1">
@@ -31,7 +31,7 @@
         </div>
       </div>
       <div class="brand-footer">
-        <span>&copy; 2026 数标云管</span>
+        <span>&copy; 2026 天枢</span>
       </div>
     </div>
 
@@ -40,7 +40,7 @@
       <div class="login-form-container anim-fade-in">
         <div class="form-header">
           <h2>欢迎回来</h2>
-          <p>登录以继续使用数标云管</p>
+          <p>登录以继续使用天枢</p>
         </div>
 
         <el-form :model="form" @submit.prevent="handleLogin" class="login-form-body">
@@ -83,7 +83,7 @@
         </el-form>
 
         <div class="login-footer">
-          <span class="footer-text">数标云管 v1.0</span>
+          <span class="footer-text">天枢 v1.13</span>
         </div>
       </div>
     </div>

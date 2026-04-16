@@ -1,9 +1,13 @@
-from sqlalchemy import Column, String, Text, ForeignKey, Integer, Date, Float
+from sqlalchemy import Column, String, Text, ForeignKey, Integer, Date, Float, DateTime
 from sqlalchemy.orm import relationship
 from app.models.base import Base, TimestampMixin
 
 
 class Contract(Base, TimestampMixin):
+    # v1.12 模板和内容生成相关字段
+    generated_content = Column(Text, nullable=True)  # 生成的完整内容
+    template_id = Column(Integer, ForeignKey("templates.id", ondelete="SET NULL"), nullable=True)  # 使用的模板ID
+    content_generated_at = Column(DateTime, nullable=True)  # 内容生成时间
     """
     合同：与客户签订的正式服务协议。
     合同金额是收款和发票的核对基准，不等同于实收金额。
@@ -36,3 +40,5 @@ class Contract(Base, TimestampMixin):
     finance_records = relationship("FinanceRecord", back_populates="contract", cascade="all, delete-orphan")
     change_orders = relationship("ChangeOrder", back_populates="contract")
     invoices = relationship("Invoice", back_populates="contract", cascade="all, delete-orphan")
+    quotation = relationship("Quotation", foreign_keys=[quotation_id])
+    template = relationship("Template", foreign_keys=[template_id])

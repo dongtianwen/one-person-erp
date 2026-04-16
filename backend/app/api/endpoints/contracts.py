@@ -1,12 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from typing import Optional
 
 from app.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
+from app.models.contract import Contract
 from app.crud import contract as contract_crud
+from app.crud.quotation import quotation as quotation_crud
 from app.schemas.contract import ContractCreate, ContractUpdate, ContractResponse, ContractListResponse
+from app.core.template_utils import build_contract_context, render_template
+from app.crud.template import get_default_template
+from app.core.error_codes import ERROR_CODES
+from app.crud.project import project as project_crud
 
 router = APIRouter()
 
@@ -159,3 +167,100 @@ async def get_contract_invoices(
         "page": (skip // limit) + 1,
         "page_size": limit,
     }
+
+
+# ── 内容生成接口 ───────────────────────────────────────────
+
+@router.post("/{contract_id}/generate", response_model=ContractResponse)
+async def generate_contract_content(
+    contract_id: int,
+    force: bool = Query(False, description="是否强制覆盖已存在的内容"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """生成合同内容。
+
+    - **force**: 是否强制覆盖（默认 false，内容已存在则返回 409）
+    """
+    content, _ = await contract_crud.contract.generate_contract_content(
+        db=db, contract_id=contract_id, force=force
+    )
+
+    result = await db.execute(select(Contract).where(Contract.id == contract_id))
+    contract = result.scalars().first()
+    return ContractResponse.model_validate(contract)
+
+
+@router.get("/{contract_id}/preview")
+async def preview_contract_content(
+    contract_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """预览合同内容（不写库）。
+
+    允许在任何状态下预览，包括 active 冻结状态。
+    """
+    result = await db.execute(
+        select(Contract)
+        .options(selectinload(Contract.quotation))
+        .where(Contract.id == contract_id)
+    )
+    contract = result.scalars().first()
+
+    if not contract:
+        raise HTTPException(status_code=404, detail="合同不存在")
+
+    # 构建模板上下文
+    contract_data = {
+        "contract_no": contract.contract_no,
+        "title": contract.title,
+        "customer_name": "",
+        "project_name": contract.title,
+        "amount": contract.amount or 0,
+        "signed_date": str(contract.signed_date) if contract.signed_date else "",
+        "notes": contract.terms or "",
+    }
+    quotation_data = {}
+    if contract.quotation:
+        quotation_data = {"quote_no": contract.quotation.quote_no}
+
+    context = build_contract_context(contract_data, quotation_data)
+
+    # 获取默认模板
+    template = await get_default_template(db, template_type="contract")
+    if not template:
+        raise HTTPException(status_code=404, detail="默认合同模板不存在")
+
+    # 渲染模板（不写库）
+    content, error_msg = render_template(
+        template_content=template.content,
+        context=context,
+        required_vars=None,  # 预览不校验必填变量
+    )
+
+    if error_msg:
+        raise HTTPException(status_code=500, detail=f"模板渲染失败: {error_msg}")
+
+    return {"content": content}
+
+
+@router.put("/{contract_id}/generated-content")
+async def update_contract_content(
+    contract_id: int,
+    content: str = Query(..., description="新内容"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """手工编辑合同内容。
+
+    content_generated_at 不更新（保留最后生成时间）。
+    """
+    try:
+        await contract_crud.contract.update_contract_generated_content(
+            db=db, contract_id=contract_id, content=content
+        )
+    except ValueError:
+        raise HTTPException(status_code=404, detail="合同不存在")
+
+    return {"message": "内容已更新"}

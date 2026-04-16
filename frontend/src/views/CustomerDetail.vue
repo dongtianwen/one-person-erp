@@ -10,6 +10,12 @@
       <el-tag v-if="customer" :type="statusTypes[customer.status] || 'info'" size="large" round>
         {{ statusLabels[customer.status] || customer.status }}
       </el-tag>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <el-button type="success" size="small" @click="handleGenerateCustomerReport" :loading="generatingReport">
+          生成客户分析报告
+        </el-button>
+        <el-button size="small" @click="showReportHistory">历史报告</el-button>
+      </div>
     </div>
 
     <div v-if="loading" v-loading="true" style="min-height: 200px"></div>
@@ -267,6 +273,32 @@
           </el-dialog>
         </el-tab-pane>
       </el-tabs>
+
+      <el-dialog v-model="reportHistoryVisible" title="历史报告" width="600px" destroy-on-close>
+        <el-table :data="reportHistory" size="small" v-if="reportHistory.length">
+          <el-table-column label="生成时间" width="160">
+            <template #default="{ row }">{{ row.generated_at || row.created_at }}</template>
+          </el-table-column>
+          <el-table-column prop="llm_provider" label="Provider" width="100" />
+          <el-table-column prop="status" label="状态" width="80">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'completed' ? 'success' : row.status === 'failed' ? 'danger' : 'warning'" size="small">{{ row.status }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="version_no" label="版本" width="60" />
+          <el-table-column label="操作" width="120">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="viewReport(row.id)">查看</el-button>
+              <el-button link type="danger" size="small" @click="handleDeleteReport(row.id)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div v-else class="empty-hint">暂无历史报告</div>
+      </el-dialog>
+
+      <el-dialog v-model="reportContentVisible" title="报告内容" width="700px" destroy-on-close>
+        <div style="white-space: pre-wrap; line-height: 1.8; font-size: 14px; max-height: 60vh; overflow-y: auto;">{{ reportContent }}</div>
+      </el-dialog>
     </template>
   </div>
 </template>
@@ -279,6 +311,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { getCustomer } from '../api/customers'
 import { getCustomerAssets, createCustomerAsset, updateCustomerAsset, deleteCustomerAsset } from '../api/customerAssets'
+import { generateReport, listReports, getReport, deleteReport as deleteReportApi } from '../api/reports'
 import api from '../api/index'
 
 import { Plus } from '@element-plus/icons-vue'
@@ -299,6 +332,11 @@ const ltvData = ref({
   last_cooperation_date: null,
 })
 const ltvError = ref(false)
+const generatingReport = ref(false)
+const reportHistoryVisible = ref(false)
+const reportHistory = ref([])
+const reportContentVisible = ref(false)
+const reportContent = ref('')
 
 const statusLabels = { potential: '潜在', follow_up: '跟进', deal: '成交', lost: '流失' }
 const statusTypes = { potential: 'info', follow_up: 'warning', deal: 'success', lost: 'danger' }
@@ -424,6 +462,53 @@ const handleDeleteAsset = async (row) => {
     loadAssets()
   } catch (e) {
     if (e !== 'cancel') ElMessage.error(e.response?.data?.detail || '删除失败')
+  }
+}
+
+const handleGenerateCustomerReport = async () => {
+  generatingReport.value = true
+  try {
+    const { data } = await generateReport('report_customer', parseInt(route.params.id))
+    if (data.content) {
+      reportContent.value = data.content
+      reportContentVisible.value = true
+    }
+    ElMessage.success('客户分析报告已生成')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.detail || '报告生成失败')
+  } finally {
+    generatingReport.value = false
+  }
+}
+
+const showReportHistory = async () => {
+  try {
+    const { data } = await listReports({ entity_type: 'customer', entity_id: route.params.id })
+    reportHistory.value = data.items || []
+    reportHistoryVisible.value = true
+  } catch (e) {
+    ElMessage.error('加载报告历史失败')
+  }
+}
+
+const viewReport = async (id) => {
+  try {
+    const { data } = await getReport(id)
+    reportContent.value = data.content || '报告内容为空'
+    reportContentVisible.value = true
+  } catch (e) {
+    ElMessage.error('加载报告失败')
+  }
+}
+
+const handleDeleteReport = async (id) => {
+  try {
+    await ElMessageBox.confirm('确认删除此报告？', '删除确认', { type: 'warning' })
+    await deleteReportApi(id)
+    ElMessage.success('报告已删除')
+    showReportHistory()
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error('删除失败')
   }
 }
 

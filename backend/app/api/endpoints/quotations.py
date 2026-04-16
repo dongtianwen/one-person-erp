@@ -4,6 +4,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from typing import Optional
 
 from app.database import get_db
@@ -13,6 +14,7 @@ from app.models.quotation import Quotation, QuotationItem, QuotationChange
 from app.models.contract import Contract
 from app.crud.quotation import quotation as quotation_crud
 from app.crud.contract import contract as contract_crud
+from app.crud.project import project as project_crud
 from app.core.exception_handlers import BusinessException
 from app.crud.customer import customer as customer_crud
 from app.schemas.quotation import (
@@ -20,10 +22,18 @@ from app.schemas.quotation import (
     QuotationPreviewRequest, QuotationPreviewResponse,
     QuotationItemCreate, QuotationItemResponse,
 )
+from app.schemas.contract import ContractResponse
 from app.core.constants import (
     QUOTE_NO_PREFIX, QUOTE_VALID_DAYS_DEFAULT, QUOTE_DECIMAL_PLACES,
     QUOTE_ESTIMATE_MAX_DAYS, QUOTE_VALID_TRANSITIONS,
+    QUOTATION_CONTENT_FROZEN_STATUS,
 )
+from app.core.template_utils import (
+    build_quotation_context,
+    render_template,
+)
+from app.crud.template import get_default_template
+from app.core.error_codes import ERROR_CODES
 
 logger = logging.getLogger("app.quotations")
 router = APIRouter()
@@ -484,3 +494,148 @@ async def convert_to_contract(
         raise HTTPException(status_code=500, detail="报价转合同失败")
 
     return QuotationResponse.model_validate(q)
+
+
+# ── 内容生成接口 ───────────────────────────────────────────
+
+@router.post("/{quote_id}/generate", response_model=QuotationResponse)
+async def generate_quotation_content(
+    quote_id: int,
+    force: bool = Query(False, description="是否强制覆盖已存在的内容"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """生成报价单内容。
+
+    - **force**: 是否强制覆盖（默认 false，内容已存在则返回 409）
+    """
+    content, _ = await quotation_crud.generate_quotation_content(
+        db=db, quotation_id=quote_id, force=force
+    )
+
+    result = await db.execute(select(Quotation).where(Quotation.id == quote_id))
+    quotation = result.scalars().first()
+    return QuotationResponse.model_validate(quotation)
+
+
+@router.get("/{quote_id}/preview")
+async def preview_quotation_content(
+    quote_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """预览报价单内容（不写库）。
+
+    允许在任何状态下预览，包括 accepted 冻结状态。
+    """
+    q = await quotation_crud.get(db, quote_id)
+    if not q:
+        raise HTTPException(status_code=404, detail="报价单不存在")
+
+    # 构建模板上下文
+    quotation_data = {
+        "quote_no": q.quote_no,
+        "title": q.title,
+        "customer_name": "",
+        "project_name": q.title,
+        "requirement_summary": q.requirement_summary or "",
+        "estimate_days": q.estimate_days or 0,
+        "total_amount": float(q.total_amount) if q.total_amount else 0,
+        "valid_until": str(q.valid_until) if q.valid_until else "",
+        "created_at": str(q.created_at)[:10] if q.created_at else "",
+        "daily_rate": q.daily_rate,
+        "direct_cost": q.direct_cost,
+        "risk_buffer_rate": q.risk_buffer_rate,
+        "tax_rate": q.tax_rate,
+        "tax_amount": q.tax_amount,
+        "discount_amount": q.discount_amount,
+        "subtotal_amount": q.subtotal_amount,
+        "notes": q.notes,
+    }
+    context = build_quotation_context(quotation_data)
+
+    # 获取默认模板
+    template = await get_default_template(db, template_type="quotation")
+    if not template:
+        raise HTTPException(status_code=404, detail="默认报价模板不存在")
+
+    # 渲染模板（不写库）
+    content, error_msg = render_template(
+        template_content=template.content,
+        context=context,
+        required_vars=None,  # 预览不校验必填变量
+    )
+
+    if error_msg:
+        raise HTTPException(status_code=500, detail=f"模板渲染失败: {error_msg}")
+
+    return {"content": content}
+
+
+@router.put("/{quote_id}/generated-content")
+async def update_quotation_content(
+    quote_id: int,
+    content: str = Query(..., description="新内容"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """手工编辑报价单内容。
+
+    content_generated_at 不更新（保留最后生成时间）。
+    """
+    try:
+        await quotation_crud.update_quotation_generated_content(
+            db=db, quotation_id=quote_id, content=content
+        )
+    except ValueError:
+        raise HTTPException(status_code=404, detail="报价单不存在")
+
+    return {"message": "内容已更新"}
+
+
+@router.post("/projects/{project_id}/generate-quotation", response_model=QuotationResponse)
+async def create_quotation_from_project(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """从项目创建报价单（带草稿去重）。
+
+    如果项目已有草稿（status=draft 且 template_id IS NOT NULL），
+    返回 409 DRAFT_ALREADY_EXISTS。
+    """
+    quotation = await quotation_crud.create_quotation_from_project(
+        db=db, project_id=project_id
+    )
+
+    return QuotationResponse.model_validate(quotation)
+
+
+@router.post("/{quote_id}/generate-contract", response_model=ContractResponse)
+async def generate_contract_from_quotation(
+    quote_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """从报价单转合同并生成草稿。
+
+    - 报价单必须 accepted
+    - 已转合同返回 QUOTE_ALREADY_CONVERTED（409）
+    - 原子事务：创建合同 + 更新 converted_contract_id + 生成内容
+    - deliverables_desc 传空字符串（不从 deliverables 表取）
+    """
+    # 创建合同（不 commit）
+    contract = await contract_crud.create_contract_from_quotation(
+        db=db, quotation_id=quote_id
+    )
+
+    # 生成合同内容（同一事务内）
+    await contract_crud.generate_contract_content(
+        db=db, contract_id=contract.id, force=False
+    )
+
+    # 统一提交
+    await db.commit()
+    await db.refresh(contract)
+
+    return ContractResponse.model_validate(contract)

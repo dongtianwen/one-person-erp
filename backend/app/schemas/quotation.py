@@ -75,6 +75,9 @@ class QuotationResponse(BaseModel):
     valid_until: date
     status: str
     notes: Optional[str] = None
+    template_id: Optional[int] = None
+    generated_content: Optional[str] = None
+    content_generated_at: Optional[datetime] = None
     sent_at: Optional[datetime] = None
     accepted_at: Optional[datetime] = None
     rejected_at: Optional[datetime] = None

@@ -26,6 +26,12 @@ from app.models.training_experiment import TrainingExperiment
 from app.models.model_version import ModelVersion
 from app.models.delivery_package import DeliveryPackage
 from app.models.template import Template
+from app.models.agent_run import AgentRun
+from app.models.agent_suggestion import AgentSuggestion
+from app.models.agent_action import AgentAction
+from app.models.human_confirmation import HumanConfirmation
+from app.models.todo import Todo
+from app.models.report import Report
 
 __all__ = [
     "Base",
@@ -64,4 +70,10 @@ __all__ = [
     "ModelVersion",
     "DeliveryPackage",
     "Template",
+    "AgentRun",
+    "AgentSuggestion",
+    "AgentAction",
+    "HumanConfirmation",
+    "Todo",
+    "Report",
 ]

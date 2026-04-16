@@ -4,6 +4,7 @@
 """
 
 import json
+import os
 import re
 import logging
 from abc import ABC, abstractmethod
@@ -148,6 +149,56 @@ class ExternalAPIProvider(BaseLLMProvider):
 
     def get_model_name(self) -> str:
         return f"api:{self.model}"
+
+    def is_available(self) -> bool:
+        """检查 API Provider 是否可用（有 key 和 base_url）。"""
+        return bool(self.api_key and self.base_url)
+
+    async def call_freeform(self, messages: list) -> Optional[str]:
+        """自由问答调用，返回模型原始文本。"""
+        payload = {"model": self.model, "messages": messages}
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        try:
+            async with httpx.AsyncClient(timeout=LLM_TIMEOUT_SECONDS) as client:
+                resp = await client.post(
+                    f"{self.base_url}/chat/completions", json=payload, headers=headers,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+            return data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        except Exception as e:
+            logger.warning("call_freeform 失败: %s", e)
+            return None
+
+    async def _call_llm_single_var(
+        self, var_name: str, context: dict, prompt: str,
+    ) -> Optional[str]:
+        """针对单个报告变量生成文本。"""
+        context_str = json.dumps(context, ensure_ascii=False, default=str)
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "你是一位资深经营顾问，请基于以下经营数据回答问题。"
+                    "只输出分析文本，不要输出 JSON 或其他格式。\n\n"
+                    f"经营数据：\n{context_str}"
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ]
+        payload = {"model": self.model, "messages": messages}
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        try:
+            async with httpx.AsyncClient(timeout=LLM_TIMEOUT_SECONDS) as client:
+                resp = await client.post(
+                    f"{self.base_url}/chat/completions", json=payload, headers=headers,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+            return data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        except Exception as e:
+            logger.warning("_call_llm_single_var 失败 | var=%s | error=%s", var_name, e)
+            return None
 
     async def enhance(self, rule_text: str, feedback_text: str = "") -> Optional[List[Dict[str, Any]]]:
         count = rule_text.count('"index"') or 1

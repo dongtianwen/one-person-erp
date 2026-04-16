@@ -71,6 +71,25 @@
 
       <el-col :span="10">
         <el-card shadow="never">
+          <template #header>自由问答</template>
+          <el-descriptions :column="1" border>
+            <el-descriptions-item label="当前 Provider">
+              <el-tag :type="configForm.provider === 'api' ? 'success' : 'info'" size="small">
+                {{ configForm.provider === 'api' ? '云端 API（可用）' : configForm.provider === 'local' ? '本地 Ollama（不支持问答）' : '未启用' }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="问答入口">
+              <el-button v-if="configForm.provider === 'api'" type="primary" size="small" @click="$router.push('/assistant/qa')">
+                进入经营助手
+              </el-button>
+              <span v-else style="color: #909399; font-size: 13px;">
+                需切换为「云端 API」模式并配置 API Key 后可用
+              </span>
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-card>
+
+        <el-card shadow="never" style="margin-top: 16px;">
           <template #header>规则引擎逻辑（预设）</template>
           <el-descriptions :column="1" border>
             <el-descriptions-item label="逾期回款">由于支付期已过且未回款，自动标记为 anomaly</el-descriptions-item>

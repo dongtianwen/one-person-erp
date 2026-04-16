@@ -25,3 +25,36 @@ async def delete_setting(db: AsyncSession, key: str) -> None:
     setting = result.scalar_one_or_none()
     if setting:
         setting.is_deleted = True
+
+
+COMPANY_KEYS = [
+    "company_name",
+    "company_tax_id",
+    "company_address",
+    "company_legal_rep",
+    "company_contact",
+    "company_phone",
+    "company_email",
+    "company_bank_name",
+    "company_bank_account",
+]
+
+
+async def get_company_settings(db: AsyncSession) -> dict[str, str]:
+    """读取所有公司设置项，返回 dict。"""
+    result = await db.execute(
+        select(SystemSetting).where(
+            SystemSetting.key.in_(COMPANY_KEYS),
+            SystemSetting.is_deleted == False,
+        )
+    )
+    settings = result.scalars().all()
+    return {s.key: s.value for s in settings if s.value}
+
+
+async def update_company_settings(db: AsyncSession, data: dict[str, str]) -> None:
+    """批量更新公司设置（upsert）。"""
+    for key in COMPANY_KEYS:
+        value = data.get(key, "")
+        if value:
+            await set_setting(db, key, value)

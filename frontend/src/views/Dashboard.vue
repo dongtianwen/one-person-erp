@@ -226,8 +226,8 @@
         <el-table-column prop="name" label="项目名称" min-width="160" />
         <el-table-column label="状态" width="90">
           <template #default="{ row }">
-            <el-tag :type="statusTypes[row.status] || 'info'" size="small">
-              {{ statusLabels[row.status] || row.status }}
+            <el-tag :type="getStatusType(row.status)" size="small">
+              {{ getStatusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -282,7 +282,7 @@
         </el-table-column>
         <el-table-column label="逾期天数" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.overdue_days > 30 ? 'danger' : row.overdue_days > 7 ? 'warning' : ''" size="small">
+            <el-tag :type="row.overdue_days > 30 ? 'danger' : row.overdue_days > 7 ? 'warning' : 'info'" size="small">
               {{ row.overdue_days }} 天
             </el-tag>
           </template>
@@ -372,7 +372,7 @@
             <div class="contract-meta">
               <el-tag
                 size="small"
-                :type="daysLeft(c.end_date) <= 3 ? 'danger' : 'warning'"
+                :type="daysLeft(c.end_date) <= 3 ? 'danger' : daysLeft(c.end_date) <= 7 ? 'warning' : 'info'"
                 round
                 class="contract-countdown"
               >剩余 {{ daysLeft(c.end_date) }} 天</el-tag>
@@ -544,8 +544,17 @@ const loadProfitOverview = async () => {
 const stageLabels = { potential: '潜在客户', follow_up: '跟进中', deal: '成交', lost: '流失' }
 const stageColors = { potential: '#94a3b8', follow_up: '#06b6d4', deal: '#10b981', lost: '#f43f5e' }
 const statusLabels = { requirements: '需求', design: '设计', development: '开发', testing: '测试', delivery: '交付', paused: '暂停', completed: '已完成' }
+const getStatusLabel = (status) => {
+  if (!status || typeof status !== 'string') return status || ''
+  return statusLabels[status] || status
+}
 const statusColors = { requirements: '#94a3b8', design: '#8b5cf6', development: '#06b6d4', testing: '#f59e0b', delivery: '#10b981', paused: '#ef4444', completed: '#10b981' }
-const statusTypes = { requirements: 'info', design: '', development: 'primary', testing: 'warning', delivery: 'success', paused: 'info', completed: 'success' }
+const statusTypes = { requirements: 'info', design: 'info', development: 'primary', testing: 'warning', delivery: 'success', paused: 'info', completed: 'success' }
+const getStatusType = (status) => {
+  if (!status || typeof status !== 'string') return 'info'
+  const t = statusTypes[status]
+  return t || 'info'
+}
 
 const metricCards = computed(() => [
   { key: 'income', label: '本月收入', value: metrics.value.monthly_income, prefix: '¥', color: '#10b981', glow: 'rgba(16, 185, 129, 0.12)', icon: TrendCharts },
@@ -613,7 +622,7 @@ const reminderTypeLabel = (t) => ({
 
 const reminderTypeTag = (t) => ({
   annual_report: 'danger', tax_filing: 'danger', contract_expiry: 'warning',
-  task_deadline: 'warning', file_expiry: 'info', custom: '',
+  task_deadline: 'warning', file_expiry: 'info', custom: 'info',
 }[t] || 'info')
 
 const loadData = async () => {
