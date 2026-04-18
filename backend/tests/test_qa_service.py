@@ -133,6 +133,7 @@ async def test_build_qa_context_no_db_writes(db):
 @pytest.mark.asyncio
 async def test_build_qa_context_with_related_records(db):
     from app.core.qa_service import build_qa_context
+    from app.models.project import Milestone
 
     customer = Customer(name="测试客户", contact_person="张三", email="qa@example.com")
     db.add(customer)
@@ -146,6 +147,16 @@ async def test_build_qa_context_with_related_records(db):
     )
     db.add(project)
     await db.flush()
+
+    milestone = Milestone(
+        project_id=project.id,
+        title="M1: 首付款",
+        due_date=date(2026, 5, 1),
+        payment_amount=60000,
+        payment_status="unpaid",
+        payment_due_date=date(2026, 5, 1),
+    )
+    db.add(milestone)
 
     contract = Contract(
         contract_no="HT-TEST-001",
@@ -164,8 +175,62 @@ async def test_build_qa_context_with_related_records(db):
     assert context["active_projects"][0]["project_name"] == "进行中项目"
     assert context["active_projects"][0]["customer_name"] == "测试客户"
     assert context["active_projects"][0]["contract_amount"] == 120000.0
+    assert context["active_projects"][0]["status"] == "in_progress"
     assert context["overdue_contracts"][0]["contract_title"] == "逾期合同"
     assert context["overdue_contracts"][0]["customer_name"] == "测试客户"
+    assert "pending_payments" in context
+    assert len(context["pending_payments"]) == 1
+    assert context["pending_payments"][0]["project_name"] == "进行中项目"
+    assert context["pending_payments"][0]["milestone_title"] == "M1: 首付款"
+    assert context["pending_payments"][0]["payment_amount"] == 60000.0
+
+
+@pytest.mark.asyncio
+async def test_completed_project_with_pending_milestones_in_context(db):
+    from app.core.qa_service import build_qa_context
+    from app.models.project import Milestone
+
+    customer = Customer(name="已完成客户", contact_person="李四", email="done@example.com")
+    db.add(customer)
+    await db.flush()
+
+    project = Project(
+        name="已完成项目",
+        customer_id=customer.id,
+        status="completed",
+        budget=800000,
+    )
+    db.add(project)
+    await db.flush()
+
+    m1 = Milestone(
+        project_id=project.id,
+        title="M1: 需求确认",
+        due_date=date(2026, 3, 16),
+        payment_amount=240000,
+        payment_status="unpaid",
+        payment_due_date=date(2026, 3, 16),
+    )
+    m2 = Milestone(
+        project_id=project.id,
+        title="M2: 交付验收",
+        due_date=date(2026, 4, 8),
+        payment_amount=320000,
+        payment_status="pending",
+        payment_due_date=date(2026, 4, 8),
+    )
+    db.add_all([m1, m2])
+    await db.commit()
+
+    context = await build_qa_context(db)
+
+    project_names = [p["project_name"] for p in context["active_projects"]]
+    assert "已完成项目" in project_names
+
+    pending = [p for p in context["pending_payments"] if p["project_name"] == "已完成项目"]
+    assert len(pending) == 2
+    assert pending[0]["payment_status"] == "unpaid"
+    assert pending[1]["payment_status"] == "pending"
 
 
 @pytest.mark.asyncio

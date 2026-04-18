@@ -32,10 +32,12 @@ logger = logging.getLogger(__name__)
 ENHANCE_SYSTEM_PROMPT = (
     "你是一个资深经营顾问，请将以下业务异常数据改写为面向管理者的详实专业建议。"
     "要求："
-    "1. 输出纯 JSON 数组，每项必须包含 index（与输入的 index 数值保持一致）、title（≤20字的简洁标题）和 description（3-5句话，务必使用原文和其下 data 字段中的明细数据，指明具体责任内容、严重程度及应对行动）。"
-    "2. description 必须比原始文本更丰富：清晰说明由于该异常引起的风险或资金后果，并给出非常具体的下一步行动建议。"
-    "3. 语气专业、务实且直接，避免空话套话或解释。"
-    "4. 严格输出纯 JSON 数组，不要 markdown fence 或任何前缀正文。"
+    "1. 输出纯 JSON 数组，每项必须包含 index（与输入的 index 数值保持一致）、title（≤20字的简洁标题）和 description（必须3-5句话，每句都要有实质内容）。"
+    "2. description 必须充实详细：第一句说明异常情况和涉及的具体项目/客户/金额；第二句逐条引用明细数据（项目名、里程碑名、逾期天数、金额、风险等级），指出差异；第三句说明可能的风险和资金后果；第四至五句给出具体的下一步行动建议和处置策略。"
+    "3. 当输入包含 📋 明细数据时，必须在 description 中逐条引用：分别说明每笔的项目名、客户名、里程碑、金额、逾期天数和客户风险等级。禁止只说'最大逾期X天'或总金额——必须让管理者清楚看到每笔明细的差异。"
+    "4. 客户风险等级必须使用中文：normal=正常、low=低、medium=中、elevated=较高、high=高。禁止使用英文原值。"
+    "5. 语气专业、务实且直接，避免空话套话或解释。"
+    "6. 严格输出纯 JSON 数组，不要 markdown fence 或任何前缀正文。"
 )
 
 ENHANCE_USER_PROMPT = "以下是检测到的业务异常（共 {count} 条），请逐条改写：\n{rule_text}\n\n历史决策参考：\n{feedback_text}\n\n请输出 JSON 数组，数组长度必须与输入条数相同。"
@@ -324,11 +326,11 @@ def build_llm_context(
 
     只向 LLM 发送精简字段（index/title/description/priority），
     避免内部字段（action_params、source_rule 等）干扰小模型生成。
+    当 data 中包含 details 明细时，将其格式化为可读文本注入 description。
     """
     if rules_output:
         simplified = []
         for i, item in enumerate(rules_output):
-            # action_params 可能是被 json.dumps 过的字符串
             raw_params = item.get("action_params")
             if isinstance(raw_params, str):
                 try:
@@ -338,14 +340,39 @@ def build_llm_context(
             if not isinstance(raw_params, dict):
                 raw_params = {}
 
+            # 从 data 字段提取 details 明细并格式化为可读文本
+            raw_data = item.get("data")
+            details_text = ""
+            if isinstance(raw_data, str):
+                try:
+                    raw_data = json.loads(raw_data)
+                except Exception:
+                    raw_data = {}
+            if isinstance(raw_data, dict):
+                details = raw_data.get("details")
+                if isinstance(details, list) and details:
+                    lines = []
+                    for d in details:
+                        proj = d.get("project_name", "未知项目")
+                        cust = d.get("customer_name", "")
+                        ms = d.get("title", "")
+                        amt = d.get("amount", 0)
+                        days = d.get("days_overdue", 0)
+                        risk = d.get("customer_risk_level", "normal")
+                        risk_label = {"normal": "正常", "low": "低", "medium": "中", "elevated": "较高", "high": "高"}.get(risk, risk)
+                        lines.append(
+                            f"  - 项目：{proj} | 客户：{cust} | 里程碑：{ms} | "
+                            f"金额：¥{amt:,.2f} | 逾期：{days} 天 | 客户风险：{risk_label}"
+                        )
+                    details_text = "\n\n📋 明细数据：\n" + "\n".join(lines)
+
             simplified.append({
                 "index": i,
                 "decision_type": item.get("decision_type", ""),
                 "suggestion_type": item.get("suggestion_type", ""),
                 "priority": item.get("priority", "medium"),
                 "title": item.get("title", ""),
-                "description": item.get("description", ""),
-                # 过滤掉内部的数据库 ID，避免大模型“像机器读代码”一样念出 task_id 等
+                "description": item.get("description", "") + details_text,
                 "data": {k: v for k, v in raw_params.items() if not k.endswith("_id") and k != "id"},
             })
         rule_text = json.dumps(simplified, ensure_ascii=False, indent=2)

@@ -28,7 +28,18 @@ async def generate_report(
     """生成报告。"""
     from app.core.report_service import generate_report
     result = await generate_report(db, req.report_type, req.entity_id, req.template_id)
-    return {"code": 0, "data": result}
+    from app.services.snapshot_service import create_snapshot
+    snapshot_data = {
+        "report_id": result.get("report_id"),
+        "report_type": req.report_type,
+        "entity_id": req.entity_id,
+        "status": result.get("status"),
+    }
+    success, warning = await create_snapshot(db, "report", result.get("report_id", 0), snapshot_data)
+    resp = {"code": 0, "data": result}
+    if not success:
+        resp["warning_code"] = warning
+    return resp
 
 
 @router.get("")

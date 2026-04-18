@@ -1,25 +1,16 @@
-import asyncio
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy import text
-
-async def check_tables():
-    engine = create_async_engine('sqlite+aiosqlite:///./shubiao.db')
-    async with engine.begin() as conn:
-        result = await conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
-        tables = result.fetchall()
-        print('Tables in database:')
-        for t in tables:
-            print(f'  - {t[0]}')
-
-        print()
-        print('Checking v1.11 tables:')
-        v11_tables = ['datasets', 'dataset_versions', 'annotation_tasks', 'training_experiments', 'model_versions', 'delivery_packages']
-        for t in v11_tables:
-            try:
-                result = await conn.execute(text(f'SELECT COUNT(*) FROM {t}'))
-                count = result.scalar()
-                print(f'  {t}: {count} rows')
-            except Exception as e:
-                print(f'  {t}: ERROR - {e}')
-
-asyncio.run(check_tables())
+import sqlite3, os
+db_path = "erp.db"
+if os.path.exists(db_path):
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+    tables = [r[0] for r in cur.fetchall()]
+    print("Tables:", tables)
+    print("Has entity_snapshots:", "entity_snapshots" in tables)
+    print("Has meeting_minutes:", "meeting_minutes" in tables)
+    print("Has dashboard_summary:", "dashboard_summary" in tables)
+    print("Has tool_entries:", "tool_entries" in tables)
+    print("Has leads:", "leads" in tables)
+    conn.close()
+else:
+    print("DB not found at", db_path)

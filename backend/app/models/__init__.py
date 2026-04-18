@@ -32,6 +32,11 @@ from app.models.agent_action import AgentAction
 from app.models.human_confirmation import HumanConfirmation
 from app.models.todo import Todo
 from app.models.report import Report
+from app.models.entity_snapshot import EntitySnapshot
+from app.models.dashboard_summary import DashboardSummary
+from app.models.meeting_minute import MeetingMinute
+from app.models.tool_entry import ToolEntry
+from app.models.lead import Lead
 
 __all__ = [
     "Base",
@@ -76,4 +81,9 @@ __all__ = [
     "HumanConfirmation",
     "Todo",
     "Report",
+    "EntitySnapshot",
+    "DashboardSummary",
+    "MeetingMinute",
+    "ToolEntry",
+    "Lead",
 ]

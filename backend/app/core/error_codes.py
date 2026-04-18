@@ -60,6 +60,13 @@ ERROR_CODES: dict[str, str] = {
     "REPORT_LLM_FILL_FAILED": "AI 分析段落填充失败",
     # v2.1 交付质检
     "DELIVERY_QC_NO_PACKAGE": "指定的交付包不存在",
+    # v2.2 快照底座 + 仪表盘聚合层
+    "SNAPSHOT_WRITE_FAILED": "快照写入失败",
+    "SNAPSHOT_VERSION_NOT_FOUND": "快照版本不存在",
+    "SUMMARY_REFRESH_FAILED": "仪表盘汇总数据刷新失败",
+    "MINUTES_ASSOCIATION_REQUIRED": "纪要必须关联项目或客户",
+    "TOOL_ENTRY_INVALID_TRANSITION": "工具入口状态流转不合法",
+    "LEAD_INVALID_TRANSITION": "客户线索状态流转不合法",
 }
 
 ERROR_QA_REQUIRES_API_PROVIDER = "QA_REQUIRES_API_PROVIDER"

@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -13,10 +14,45 @@ from app.models.customer import Customer
 from app.models.project import Project, Task
 from app.models.contract import Contract
 from app.models.finance import FinanceRecord
+from app.models.dashboard_summary import DashboardSummary
 from app.crud import finance as finance_crud
 from app.config import settings
+from app.core.constants import DASHBOARD_METRIC_KEY_WHITELIST
 
 router = APIRouter()
+
+
+@router.get("/summary")
+async def get_dashboard_summary(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(DashboardSummary))
+    rows = result.scalars().all()
+    metrics = {}
+    for row in rows:
+        try:
+            metrics[row.metric_key] = json.loads(row.metric_value) if row.metric_value else None
+        except (json.JSONDecodeError, TypeError):
+            metrics[row.metric_key] = row.metric_value
+
+    for key in DASHBOARD_METRIC_KEY_WHITELIST:
+        if key not in metrics:
+            metrics[key] = None
+
+    return {"metrics": metrics}
+
+
+@router.post("/rebuild-summary")
+async def rebuild_dashboard_summary(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.services.summary_service import rebuild_summary_full
+    success = await rebuild_summary_full(db=db)
+    if success:
+        return {"success": True, "message": "仪表盘汇总数据已全量重建"}
+    return {"success": False, "message": "仪表盘汇总数据重建失败"}
 
 
 @router.get("")

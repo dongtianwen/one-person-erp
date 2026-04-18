@@ -56,6 +56,13 @@ async def build_qa_context(db: AsyncSession) -> Dict[str, Any]:
         context["active_projects"] = None
 
     try:
+        context["pending_payments"] = await _build_pending_payments(db)
+        all_failed = False
+    except Exception as e:
+        logger.warning("QA context: 待收款明细构建失败: %s", e)
+        context["pending_payments"] = None
+
+    try:
         context["overdue_contracts"] = await _build_overdue_contracts(db)
         all_failed = False
     except Exception as e:
@@ -122,29 +129,48 @@ async def _build_finance_summary(db: AsyncSession) -> List[Dict[str, Any]]:
 
 
 async def _build_active_projects(db: AsyncSession) -> List[Dict[str, Any]]:
-    """构建活跃项目列表。"""
-    from app.models.project import Project
+    """构建活跃项目列表（含所有有未收款里程碑的项目）。"""
+    from app.models.project import Project, Milestone
+
+    project_ids_with_pending = await db.execute(
+        select(Milestone.project_id).where(
+            Milestone.payment_status != "received",
+            Milestone.is_deleted == False,
+        ).distinct()
+    )
+    extra_ids = [r[0] for r in project_ids_with_pending.all()]
 
     result = await db.execute(
         select(Project)
         .options(selectinload(Project.customer))
         .where(
-            Project.status.in_(["in_progress", "not_started"]),
+            Project.status.in_(["in_progress", "not_started", "requirements"]),
             Project.is_deleted == False,
         )
         .order_by(Project.created_at.desc())
         .limit(QA_CONTEXT_MAX_PROJECTS)
     )
-    projects = result.scalars().all()
+    projects = list(result.scalars().all())
+
+    existing_ids = {p.id for p in projects}
+    if extra_ids:
+        missing_ids = [pid for pid in extra_ids if pid not in existing_ids]
+        if missing_ids:
+            extra_result = await db.execute(
+                select(Project)
+                .options(selectinload(Project.customer))
+                .where(Project.id.in_(missing_ids), Project.is_deleted == False)
+            )
+            projects.extend(extra_result.scalars().all())
 
     items = []
     for p in projects:
-        # 兼容当前项目模型字段，避免依赖未落地的缓存列。
         contract_amount = float(getattr(p, "contract_amount", None) or p.budget or 0)
         received = await _get_project_received(db, p.id)
         items.append({
             "project_name": p.name,
             "customer_name": p.customer.name if p.customer else "",
+            "status": p.status,
             "start_date": p.start_date.isoformat() if p.start_date else None,
             "contract_amount": contract_amount,
             "milestone_completion_rate": float(
@@ -167,6 +193,34 @@ async def _get_project_received(db: AsyncSession, project_id: int) -> float:
         )
     )
     return float(result.scalar() or 0)
+
+
+async def _build_pending_payments(db: AsyncSession) -> List[Dict[str, Any]]:
+    """按项目拆分待收款里程碑明细。"""
+    from app.models.project import Project, Milestone
+
+    result = await db.execute(
+        select(Milestone, Project.name)
+        .join(Project, Milestone.project_id == Project.id)
+        .where(
+            Milestone.payment_status != "received",
+            Milestone.is_deleted == False,
+            Project.is_deleted == False,
+        )
+        .order_by(Milestone.payment_due_date.nulls_last(), Milestone.project_id)
+    )
+    rows = result.all()
+
+    items = []
+    for milestone, project_name in rows:
+        items.append({
+            "project_name": project_name,
+            "milestone_title": milestone.title,
+            "payment_amount": float(milestone.payment_amount or 0),
+            "payment_status": milestone.payment_status,
+            "payment_due_date": milestone.payment_due_date.isoformat() if milestone.payment_due_date else None,
+        })
+    return items
 
 
 async def _build_overdue_contracts(db: AsyncSession) -> List[Dict[str, Any]]:

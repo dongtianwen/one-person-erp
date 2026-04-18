@@ -90,6 +90,13 @@ async def create_template(
             content=content,
             description=description
         )
+        from app.services.snapshot_service import create_snapshot
+        await create_snapshot(
+            db=db,
+            entity_type="template",
+            entity_id=template.id,
+            snapshot_json={"name": template.name, "content": template.content, "template_type": template.template_type},
+        )
         return template
     except Exception as e:
         logger.error(f"创建模板失败: {e}", exc_info=True)

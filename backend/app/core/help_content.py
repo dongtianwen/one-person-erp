@@ -272,6 +272,60 @@ HELP_CONTENT: dict[str, dict] = {
         ],
         "doc_anchor": "delivery-qc",
     },
+    # v2.2 快照底座 + 仪表盘聚合层
+    "SNAPSHOT_WRITE_FAILED": {
+        "reason": "快照写入失败，主业务数据已保存成功，但版本留痕未完成。",
+        "next_steps": [
+            "主业务数据不受影响，可正常使用",
+            "可在「版本历史」中确认快照是否缺失",
+            "如需手动补录快照，可重新保存该实体内容",
+        ],
+        "doc_anchor": "snapshot-write",
+    },
+    "SNAPSHOT_VERSION_NOT_FOUND": {
+        "reason": "请求的快照版本不存在，可能是版本号超出范围或快照已被清理。",
+        "next_steps": [
+            "在「版本历史」中查看该实体的所有可用版本号",
+            "确认版本号输入正确（从 1 开始递增）",
+        ],
+        "doc_anchor": "snapshot-version",
+    },
+    "SUMMARY_REFRESH_FAILED": {
+        "reason": "仪表盘汇总数据刷新失败，首页可能显示过期的统计数据。",
+        "next_steps": [
+            "首页数据可能不是最新的，不影响业务操作",
+            "前往「设置」点击「重建仪表盘数据」手动全量刷新",
+            "检查 logs/ 目录中的详细错误信息",
+        ],
+        "doc_anchor": "summary-refresh",
+    },
+    "MINUTES_ASSOCIATION_REQUIRED": {
+        "reason": "会议纪要必须至少关联一个项目或客户，不允许创建无关联的纪要。",
+        "next_steps": [
+            "选择一个关联项目（project_id）或客户（client_id）",
+            "如暂无合适关联，可先创建客户再创建纪要",
+        ],
+        "doc_anchor": "minutes-association",
+    },
+    "TOOL_ENTRY_INVALID_TRANSITION": {
+        "reason": "工具入口台账状态流转不合法，只能按固定顺序流转。",
+        "next_steps": [
+            "pending 可流转到：in_progress、done",
+            "in_progress 可流转到：done",
+            "done 可流转到：backfilled",
+            "backfilled 为终态，不可再操作",
+        ],
+        "doc_anchor": "tool-entry-status",
+    },
+    "LEAD_INVALID_TRANSITION": {
+        "reason": "客户线索状态流转不合法，只能按固定顺序流转。",
+        "next_steps": [
+            "initial_contact 可流转到：intent_confirmed、invalid",
+            "intent_confirmed 可流转到：converted、invalid",
+            "converted 和 invalid 为终态，不可再操作",
+        ],
+        "doc_anchor": "lead-status",
+    },
 }
 
 

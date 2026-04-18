@@ -1,4 +1,4 @@
-"""v2.0 规则引擎测试。"""
+"""v2.0/v2.2 规则引擎 + 风险评分测试。"""
 import pytest
 from datetime import date, timedelta
 from decimal import Decimal
@@ -15,6 +15,7 @@ from app.core.agent_rules import (
     build_rule_plain_text,
     _build_suggestion,
     _priority_sort_key,
+    _derive_priority,
 )
 from app.models.project import Milestone, Project, Task
 
@@ -29,8 +30,17 @@ async def test_evaluate_overdue_payments_no_overdue(db_session):
 @pytest.mark.asyncio
 async def test_evaluate_overdue_payments_detects_overdue(db_session):
     """应检测到逾期回款。"""
+    from app.models.customer import Customer
+    customer = Customer(name="测试客户", contact_person="张三", email="test@test.com")
+    db_session.add(customer)
+    await db_session.flush()
+
+    project = Project(name="测试项目", customer_id=customer.id, budget=200000)
+    db_session.add(project)
+    await db_session.flush()
+
     milestone = Milestone(
-        project_id=1,
+        project_id=project.id,
         title="测试里程碑",
         due_date=date.today() - timedelta(days=10),
         payment_due_date=date.today() - timedelta(days=5),
@@ -44,7 +54,9 @@ async def test_evaluate_overdue_payments_detects_overdue(db_session):
     results = await evaluate_overdue_payments(db_session)
     assert len(results) == 1
     assert results[0]["suggestion_type"] == "overdue_payment"
-    assert results[0]["priority"] == "medium"
+    assert results[0]["risk_score"] > 0
+    assert "score_breakdown" in results[0]
+    assert "data" in results[0]
 
 
 @pytest.mark.asyncio
@@ -68,6 +80,7 @@ async def test_evaluate_profit_anomaly_detects_drop(db_session):
     results = await evaluate_profit_anomaly(db_session)
     assert len(results) == 1
     assert results[0]["suggestion_type"] == "profit_anomaly"
+    assert results[0]["risk_score"] >= 51
     assert results[0]["priority"] == "high"
 
 
@@ -105,9 +118,7 @@ async def test_evaluate_milestone_risk_with_project_id(db_session):
 @pytest.mark.asyncio
 async def test_evaluate_cashflow_warning_no_table(db_session):
     """现金流表不存在时应返回空列表（ gracefully degrade）。"""
-    # 在内存 SQLite 中 finance_records 表存在但可能无数据
     results = await evaluate_cashflow_warning(db_session)
-    # 不应抛异常
     assert isinstance(results, list)
 
 
@@ -154,7 +165,6 @@ async def test_run_business_decision_rules_returns_sorted(db_session):
     """经营决策规则应返回按优先级排序的结果。"""
     results = await run_business_decision_rules(db_session)
     assert isinstance(results, list)
-    # 验证排序：high 在前
     if len(results) >= 2:
         order = {"high": 0, "medium": 1, "low": 2}
         assert order[results[0]["priority"]] <= order[results[1]["priority"]]
@@ -202,6 +212,31 @@ def test_build_suggestion_creates_dict():
     assert s["decision_type"] == "test"
     assert s["status"] == "pending"
     assert s["llm_enhanced"] == 0
+    assert s["risk_score"] == 0
+    assert s["strategy_code"] == ""
+
+
+def test_build_suggestion_with_risk_scoring():
+    """应正确附加风险评分和策略信息。"""
+    s = _build_suggestion(
+        decision_type="overdue_payment",
+        suggestion_type="overdue_payment",
+        title="逾期回款",
+        description="描述",
+        risk_score=60,
+        score_breakdown={"total_score": 60, "days_overdue_score": 15},
+        strategy={"strategy_code": "management_escalation", "strategy_name": "高层介入"},
+    )
+    assert s["risk_score"] == 60
+    assert s["strategy_code"] == "management_escalation"
+    assert s["priority"] == "high"
+
+
+def test_priority_derived_from_risk_score():
+    """priority 应自动从 risk_score 推导。"""
+    assert _derive_priority(10) == "low"
+    assert _derive_priority(30) == "medium"
+    assert _derive_priority(80) == "high"
 
 
 def test_priority_sort_key_orders_correctly():

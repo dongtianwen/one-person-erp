@@ -49,6 +49,8 @@ from app.api.endpoints import (
     agent_confirmations,
     qa,
     reports,
+    minutes,
+    ledger,
 )
 from app.database import async_session
 from app.api.endpoints.auth import create_default_admin
@@ -194,6 +196,8 @@ app.include_router(agents.router, prefix="/api/v1/agents", tags=["AI Agent"])
 app.include_router(agent_confirmations.router, prefix="/api/v1/agents", tags=["AI Agent 确认"])
 app.include_router(qa.router, prefix="/api/v1/qa", tags=["经营问答"])
 app.include_router(reports.router, prefix="/api/v1/reports", tags=["深度报告"])
+app.include_router(minutes.router, prefix="/api/v1/minutes", tags=["会议纪要"])
+app.include_router(ledger.router, prefix="/api/v1", tags=["台账管理"])
 
 # v1.13 公司设置（乙方信息）
 app.include_router(settings_endpoint.router, prefix="/api/v1/settings", tags=["公司设置"])

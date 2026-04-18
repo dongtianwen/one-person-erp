@@ -104,28 +104,6 @@ async def run_agent(
         llm_enhanced = False
         if use_llm:
             all_suggestions = list(rules_output) if rules_output else []
-            existing_to_enhance = {}  # 记录需要更新 llm_enhanced 的历史建议 id
-
-            if agent_type == AGENT_TYPE_BUSINESS_DECISION:
-                result = await db.execute(
-                    select(AgentSuggestion).where(
-                        AgentSuggestion.status == "pending",
-                        AgentSuggestion.llm_enhanced == False,
-                        AgentSuggestion.agent_run_id.in_(
-                            select(AgentRun.id).where(AgentRun.agent_type == agent_type)
-                        ),
-                    )
-                )
-                for s in result.scalars():
-                    all_suggestions.append({
-                        "suggestion_type": s.suggestion_type,
-                        "source_rule": s.source_rule or "",
-                        "title": s.title,
-                        "description": s.description,
-                        "priority": s.priority,
-                        "existing_id": s.id,
-                    })
-                    existing_to_enhance[s.id] = s
 
             if all_suggestions:
                 ctx = build_llm_context(all_suggestions)
@@ -145,60 +123,41 @@ async def run_agent(
                             item["description"] = enhanced[i].get("description", item["description"])
                             item["llm_enhanced"] = 1
 
-            # 更新历史建议的 llm_enhanced 状态
-            for item in all_suggestions:
-                if "existing_id" in item and item.get("llm_enhanced") == 1:
-                    s = existing_to_enhance.get(item["existing_id"])
-                    if s:
-                        s.title = item["title"]
-                        s.description = item["description"]
-                        s.llm_enhanced = True
-                        s.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-
             # rules_output 只保留本次规则输出的部分
             if rules_output:
                 rules_output = all_suggestions[:len(rules_output)]
 
-        # 3. 持久化建议（去重：同一 suggestion_type + source_rule 只保留最新一条）
-        existing_pending = {}
+        # 3. 持久化建议（每次运行都创建全新建议，旧 pending 建议标记为 superseded）
         if rules_output:
             result = await db.execute(
                 select(AgentSuggestion).where(
-                    AgentSuggestion.status == "pending",
                     AgentSuggestion.agent_run_id.in_(
                         select(AgentRun.id).where(AgentRun.agent_type == agent_type)
                     ),
                 )
             )
             for s in result.scalars():
-                key = f"{s.suggestion_type}:{s.source_rule}"
-                existing_pending[key] = s
+                if s.status == "pending":
+                    s.status = "superseded"
 
         for item in rules_output:
-            key = f"{item['suggestion_type']}:{item.get('source_rule', '')}"
-            if key in existing_pending:
-                old_suggestion = existing_pending.pop(key)
-                old_suggestion.title = item["title"]
-                old_suggestion.description = item["description"]
-                old_suggestion.priority = item.get("priority", "medium")
-                old_suggestion.agent_run_id = run_record.id
-                old_suggestion.llm_enhanced = item.get("llm_enhanced", 0)
-                old_suggestion.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-            else:
-                suggestion = AgentSuggestion(
-                    agent_run_id=run_record.id,
-                    decision_type=item["decision_type"],
-                    suggestion_type=item["suggestion_type"],
-                    title=item["title"],
-                    description=item["description"],
-                    priority=item.get("priority", "medium"),
-                    status="pending",
-                    suggested_action=item.get("suggested_action", "none"),
-                    action_params=item.get("action_params"),
-                    source_rule=item.get("source_rule", ""),
-                    llm_enhanced=item.get("llm_enhanced", 0),
-                )
-                db.add(suggestion)
+            suggestion = AgentSuggestion(
+                agent_run_id=run_record.id,
+                decision_type=item["decision_type"],
+                suggestion_type=item["suggestion_type"],
+                title=item["title"],
+                description=item["description"],
+                priority=item.get("priority", "medium"),
+                status="pending",
+                suggested_action=item.get("suggested_action", "none"),
+                action_params=item.get("action_params"),
+                source_rule=item.get("source_rule", ""),
+                llm_enhanced=item.get("llm_enhanced", 0),
+                risk_score=item.get("risk_score", 0),
+                strategy_code=item.get("strategy_code", ""),
+                score_breakdown=item.get("score_breakdown"),
+            )
+            db.add(suggestion)
 
         # 4. 标记运行完成
         run_record.status = "completed"

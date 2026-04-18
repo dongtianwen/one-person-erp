@@ -57,7 +57,7 @@ class TestConstantsAlignment:
         assert set(AGENT_TRIGGER_TYPE_WHITELIST) == {"manual", "scheduled"}
 
     def test_suggestion_status_whitelist(self):
-        assert set(SUGGESTION_STATUS_WHITELIST) == {"pending", "confirmed", "rejected"}
+        assert set(SUGGESTION_STATUS_WHITELIST) == {"pending", "confirmed", "rejected", "superseded"}
 
     def test_action_status_whitelist(self):
         assert set(ACTION_STATUS_WHITELIST) == {"pending", "executed", "failed"}

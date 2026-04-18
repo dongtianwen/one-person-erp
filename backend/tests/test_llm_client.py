@@ -146,6 +146,88 @@ class TestBuildLLMContext:
         line_count = ctx["feedback_text"].strip().count("\n") + 1 if ctx["feedback_text"].strip() else 0
         assert line_count <= FEEDBACK_CONTEXT_MAX_RECORDS
 
+    def test_details_injected_into_description(self):
+        rules = [
+            {
+                "decision_type": "overdue_payment",
+                "suggestion_type": "overdue_payment",
+                "title": "test",
+                "description": "original desc",
+                "priority": "high",
+                "data": {
+                    "details": [
+                        {
+                            "project_name": "ProjectA",
+                            "customer_name": "CustA",
+                            "title": "M1",
+                            "amount": 240000,
+                            "days_overdue": 30,
+                            "customer_risk_level": "normal",
+                        },
+                        {
+                            "project_name": "ProjectB",
+                            "customer_name": "CustB",
+                            "title": "M2",
+                            "amount": 320000,
+                            "days_overdue": 7,
+                            "customer_risk_level": "high",
+                        },
+                    ]
+                },
+            }
+        ]
+        ctx = build_llm_context(rules)
+        assert "明细数据" in ctx["rule_text"]
+        assert "ProjectA" in ctx["rule_text"]
+        assert "ProjectB" in ctx["rule_text"]
+        assert "30 天" in ctx["rule_text"]
+        assert "7 天" in ctx["rule_text"]
+        assert "¥240,000.00" in ctx["rule_text"]
+        assert "¥320,000.00" in ctx["rule_text"]
+        assert "正常" in ctx["rule_text"]
+        assert "高" in ctx["rule_text"]
+
+    def test_details_with_string_data_field(self):
+        import json
+        rules = [
+            {
+                "decision_type": "overdue_payment",
+                "suggestion_type": "overdue_payment",
+                "title": "test",
+                "description": "original desc",
+                "priority": "high",
+                "data": json.dumps({
+                    "details": [
+                        {
+                            "project_name": "ProjX",
+                            "customer_name": "CustX",
+                            "title": "Milestone1",
+                            "amount": 50000,
+                            "days_overdue": 15,
+                            "customer_risk_level": "elevated",
+                        }
+                    ]
+                }),
+            }
+        ]
+        ctx = build_llm_context(rules)
+        assert "ProjX" in ctx["rule_text"]
+        assert "较高" in ctx["rule_text"]
+
+    def test_no_details_when_details_missing(self):
+        rules = [
+            {
+                "decision_type": "profit_anomaly",
+                "suggestion_type": "profit_anomaly",
+                "title": "test",
+                "description": "original desc",
+                "priority": "medium",
+                "data": {"margin_percent": -10},
+            }
+        ]
+        ctx = build_llm_context(rules)
+        assert "明细数据" not in ctx["rule_text"]
+
 
 class TestCalcFeedbackWeight:
     """测试反馈权重计算。"""
