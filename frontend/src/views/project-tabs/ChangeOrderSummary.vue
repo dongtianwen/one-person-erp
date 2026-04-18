@@ -1,5 +1,6 @@
 <template>
   <div>
+    <PageHelpDrawer pageKey="project_change_summary_tab" />
     <el-table :data="orders" style="width:100%" size="small" v-if="orders.length">
       <el-table-column prop="order_no" label="变更单号" width="150">
         <template #default="{ row }">
@@ -13,6 +14,7 @@
         </template>
       </el-table-column>
       <el-table-column prop="status" label="状态" width="90">
+        <template #label>状态 <FieldTip module="project_change_summary" field="change_type" /></template>
         <template #default="{ row }">
           <el-tag size="small" :type="statusColor[row.status] || 'info'">{{ statusLabels[row.status] || row.status }}</el-tag>
         </template>
@@ -30,6 +32,8 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import FieldTip from '../../components/FieldTip.vue'
+import PageHelpDrawer from '../../components/PageHelpDrawer.vue'
 import { getProjectChangeOrders } from '../../api/changeOrders'
 
 const props = defineProps({ projectId: { type: Number, required: true } })

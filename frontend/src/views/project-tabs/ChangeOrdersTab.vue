@@ -2,6 +2,7 @@
 <template>
   <div class="change-orders-tab">
     <div class="tab-header">
+      <PageHelpDrawer pageKey="project_change_orders_tab" />
       <el-alert
         v-if="isFrozen"
         type="warning"
@@ -140,6 +141,7 @@ import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import FieldTip from '../../components/FieldTip.vue'
+import PageHelpDrawer from '../../components/PageHelpDrawer.vue'
 import * as v17Api from '../../api/v17'
 
 const props = defineProps({
@@ -297,6 +299,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   margin-bottom: 16px;
 }
 

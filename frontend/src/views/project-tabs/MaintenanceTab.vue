@@ -1,6 +1,7 @@
 <template>
   <div>
     <div class="tab-toolbar">
+      <PageHelpDrawer pageKey="project_maintenance_tab" />
       <el-button type="primary" size="small" @click="openCreate"><el-icon><Plus /></el-icon> 新建服务期</el-button>
     </div>
     <el-table :data="sortedPeriods" style="width:100%" size="small" v-if="sortedPeriods.length"
@@ -20,6 +21,7 @@
         <template #default="{ row }">{{ row.annual_fee != null ? '¥' + Number(row.annual_fee).toLocaleString() : '—' }}</template>
       </el-table-column>
       <el-table-column prop="status" label="状态" width="90">
+        <template #label>状态 <FieldTip module="project_maintenance" field="sla_response_time" /></template>
         <template #default="{ row }">
           <el-tag size="small" :type="statusColor[row.status] || 'info'">{{ statusLabels[row.status] || row.status }}</el-tag>
         </template>
@@ -87,6 +89,8 @@
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import FieldTip from '../../components/FieldTip.vue'
+import PageHelpDrawer from '../../components/PageHelpDrawer.vue'
 import { getMaintenancePeriods, createMaintenancePeriod, renewMaintenance, patchMaintenance } from '../../api/maintenance'
 
 const props = defineProps({ projectId: { type: Number, required: true } })
@@ -183,7 +187,7 @@ watch(() => props.projectId, () => loadData(), { immediate: true })
 </script>
 
 <style scoped>
-.tab-toolbar { margin-bottom: 12px; }
+.tab-toolbar { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 .empty-hint { color: #999; text-align: center; padding: 24px; }
 :deep(.row-near-expiry) { background-color: #fdf6ec !important; }
 :deep(.row-expired) { background-color: #fef0f0 !important; }

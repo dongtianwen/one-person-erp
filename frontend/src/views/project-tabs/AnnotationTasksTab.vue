@@ -1,12 +1,14 @@
 <template>
   <div>
     <div class="tab-toolbar">
+      <PageHelpDrawer pageKey="project_annotation_tasks_tab" />
       <el-button type="primary" size="small" @click="openCreateTask"><el-icon><Plus /></el-icon> 新建标注任务</el-button>
     </div>
 
     <el-table :data="tasks" style="width:100%" size="small" v-if="tasks.length">
       <el-table-column prop="name" label="任务名称" min-width="140" />
       <el-table-column prop="status" label="状态" width="110">
+        <template #label>状态 <FieldTip module="annotation_task" field="quality_score" /></template>
         <template #default="{ row }">
           <el-tag :type="statusType[row.status] || 'info'" size="small">{{ statusLabel[row.status] || row.status }}</el-tag>
         </template>
@@ -111,6 +113,7 @@ import { ref } from 'vue'
 import { watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import PageHelpDrawer from '../../components/PageHelpDrawer.vue'
 import {
   getAnnotationTasks, createAnnotationTask, updateAnnotationTask,
   deleteAnnotationTask, transitionAnnotationStatus,
@@ -269,6 +272,6 @@ watch(() => props.projectId, () => loadData(), { immediate: true })
 </script>
 
 <style scoped>
-.tab-toolbar { margin-bottom: 12px; }
+.tab-toolbar { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 .empty-hint { color: #999; text-align: center; padding: 24px; }
 </style>

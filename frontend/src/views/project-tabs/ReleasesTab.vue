@@ -1,6 +1,7 @@
 <template>
   <div>
     <div class="tab-toolbar">
+      <PageHelpDrawer pageKey="project_releases_tab" />
       <el-button type="primary" size="small" @click="openCreate"><el-icon><Plus /></el-icon> 新建版本</el-button>
     </div>
     <!-- 当前线上版本置顶 -->
@@ -17,8 +18,12 @@
     </el-card>
     <!-- 其他版本按 release_date 倒序 -->
     <el-table :data="otherReleases" style="width:100%" size="small" v-if="otherReleases.length" :row-class-name="()=>'release-row'">
-      <el-table-column prop="version_no" label="版本号" width="100" />
-      <el-table-column prop="release_date" label="发布日期" width="110" />
+      <el-table-column prop="version_no" label="版本号" width="100">
+        <template #label>版本号 <FieldTip module="project_releases" field="release_version" /></template>
+      </el-table-column>
+      <el-table-column prop="release_date" label="发布日期" width="110">
+        <template #label>发布日期 <FieldTip module="project_releases" field="release_date" /></template>
+      </el-table-column>
       <el-table-column prop="release_type" label="类型" width="80">
         <template #default="{ row }">
           <el-tag size="small" :type="releaseTypeColor[row.release_type] || 'info'">{{ releaseTypeLabels[row.release_type] || row.release_type }}</el-tag>
@@ -64,6 +69,8 @@
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import FieldTip from '../../components/FieldTip.vue'
+import PageHelpDrawer from '../../components/PageHelpDrawer.vue'
 import { getReleases, createRelease, setReleaseOnline } from '../../api/releases'
 
 const props = defineProps({ projectId: { type: Number, required: true } })
@@ -112,7 +119,7 @@ watch(() => props.projectId, () => loadData(), { immediate: true })
 </script>
 
 <style scoped>
-.tab-toolbar { margin-bottom: 12px; }
+.tab-toolbar { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 .current-card { margin-bottom: 16px; }
 .release-meta { display: flex; align-items: center; gap: 8px; }
 .release-changelog { white-space: pre-wrap; margin-top: 8px; font-size: 14px; color: #666; }

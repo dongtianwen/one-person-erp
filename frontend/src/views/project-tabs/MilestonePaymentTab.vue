@@ -1,6 +1,7 @@
 <!-- v1.7 里程碑收款绑定 Tab -->
 <template>
   <div class="milestone-payment-tab">
+    <PageHelpDrawer pageKey="project_milestone_payment_tab" />
     <!-- 收款汇总卡片 -->
     <el-card class="summary-card" shadow="never">
       <template #header>
@@ -93,6 +94,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="payment_amount" label="收款金额" width="100" align="right">
+          <template #label>收款金额 <FieldTip module="project_milestone_payment" field="payment_amount" /></template>
           <template #default="{ row }">
             <span class="mono">{{ row.payment_amount ? '¥' + formatNumber(row.payment_amount) : '-' }}</span>
           </template>
@@ -110,6 +112,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="payment_received_at" label="到账时间" width="160">
+          <template #label>到账时间 <FieldTip module="project_milestone_payment" field="received_date" /></template>
           <template #default="{ row }">
             <span class="mono">{{ formatDateTime(row.payment_received_at) }}</span>
           </template>
@@ -143,6 +146,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import PageHelpDrawer from '../../components/PageHelpDrawer.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as v17Api from '../../api/v17'
 import { getMilestones } from '../../api/projects'

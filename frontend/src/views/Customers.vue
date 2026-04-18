@@ -3,6 +3,7 @@
     <div class="page-header">
       <div class="header-title-group">
         <span class="header-count mono">总计：{{ total }} 位客户</span>
+        <PageHelpDrawer pageKey="customer_list" />
       </div>
       <el-button type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon>
@@ -147,6 +148,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, MoreFilled } from '@element-plus/icons-vue'
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from '../api/customers'
+import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 
 const router = useRouter()
 

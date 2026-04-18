@@ -1,6 +1,7 @@
 <template>
   <div>
     <div class="tab-toolbar">
+      <PageHelpDrawer pageKey="project_acceptances_tab" />
       <el-button type="primary" size="small" @click="openCreate"><el-icon><Plus /></el-icon> 新建验收</el-button>
     </div>
     <el-table :data="acceptances" style="width:100%" size="small" v-if="acceptances.length">
@@ -8,6 +9,7 @@
       <el-table-column prop="acceptance_date" label="日期" width="110" />
       <el-table-column prop="acceptor_name" label="验收人" width="100" />
       <el-table-column prop="result" label="结果" width="100">
+        <template #label>结果 <FieldTip module="project_acceptances" field="acceptance_result" /></template>
         <template #default="{ row }">
           <el-tag :type="resultType[row.result] || 'info'" size="small">{{ resultLabel[row.result] || row.result }}</el-tag>
         </template>
@@ -60,6 +62,8 @@
 import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import FieldTip from '../../components/FieldTip.vue'
+import PageHelpDrawer from '../../components/PageHelpDrawer.vue'
 import { getAcceptances, createAcceptance, appendAcceptanceNotes } from '../../api/acceptances'
 import api from '../../api/index'
 
@@ -110,6 +114,6 @@ watch(() => props.projectId, () => loadData(), { immediate: true })
 </script>
 
 <style scoped>
-.tab-toolbar { margin-bottom: 12px; }
+.tab-toolbar { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 .empty-hint { color: #999; text-align: center; padding: 24px; }
 </style>

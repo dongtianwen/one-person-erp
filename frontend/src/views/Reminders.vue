@@ -3,6 +3,7 @@
     <div class="page-header">
       <div class="header-title-group">
         <span class="header-count mono">总计：{{ total }} 条记录</span>
+        <PageHelpDrawer pageKey="reminders" />
       </div>
       <div class="header-actions">
         <el-button @click="openSettings">
@@ -162,6 +163,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Setting, Check, Delete, Search } from '@element-plus/icons-vue'
+import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 import {
   getReminders,
   createReminder,

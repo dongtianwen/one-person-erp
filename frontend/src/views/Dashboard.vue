@@ -1,5 +1,9 @@
 <template>
   <div class="dashboard">
+    <div class="page-header" style="margin-bottom: 16px">
+      <h2 style="margin: 0; font-size: 18px">经营仪表盘</h2>
+      <PageHelpDrawer pageKey="dashboard" />
+    </div>
     <!-- Metric Cards -->
     <div class="metrics-grid">
       <div

@@ -1,28 +1,26 @@
 <template>
-  <!-- 无对应内容时不渲染按钮，静默处理 -->
-  <template v-if="pageData">
-    <el-button class="page-help-trigger" @click="visible = true">
-      ? 帮助
-    </el-button>
+  <el-button v-if="pageData" class="page-help-trigger" @click="visible = true">
+    ? 帮助
+  </el-button>
 
-    <el-drawer
-      v-model="visible"
-      :title="pageData.title"
-      direction="rtl"
-      :size="isMobile ? '100%' : '320px'"
-      :close-on-click-modal="true"
-    >
-      <div class="help-drawer-content">
-        <p class="help-description">{{ pageData.description }}</p>
-        <div class="help-tips">
-          <div v-for="(tip, idx) in pageData.tips.slice(0, 5)" :key="idx" class="help-tip-item">
-            <span class="tip-bullet">{{ idx + 1 }}</span>
-            <span class="tip-text">{{ tip }}</span>
-          </div>
+  <el-drawer
+    v-if="pageData"
+    v-model="visible"
+    :title="pageData.title"
+    direction="rtl"
+    :size="isMobile ? '100%' : '320px'"
+    :close-on-click-modal="true"
+  >
+    <div class="help-drawer-content">
+      <p class="help-description">{{ pageData.description }}</p>
+      <div class="help-tips">
+        <div v-for="(tip, idx) in pageData.tips.slice(0, 5)" :key="idx" class="help-tip-item">
+          <span class="tip-bullet">{{ idx + 1 }}</span>
+          <span class="tip-text">{{ tip }}</span>
         </div>
       </div>
-    </el-drawer>
-  </template>
+    </div>
+  </el-drawer>
 </template>
 
 <script setup>
@@ -48,6 +46,9 @@ const isMobile = computed(() => window.innerWidth < 640)
   background: transparent;
   padding: 6px 12px;
   border-radius: 6px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
 }
 
 .page-help-trigger:hover {

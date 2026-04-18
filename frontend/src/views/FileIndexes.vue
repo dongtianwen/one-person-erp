@@ -3,6 +3,7 @@
     <div class="page-header">
       <div class="header-title-group">
         <span class="header-count mono">总计：{{ total }} 条记录</span>
+        <PageHelpDrawer pageKey="file_indexes" />
       </div>
       <el-button type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon>
@@ -297,6 +298,7 @@ import {
   createFileVersion,
   getFileVersions,
 } from '../api/fileIndexes'
+import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 
 const typeLabels = {
   business_license: '营业执照',

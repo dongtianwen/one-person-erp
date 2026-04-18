@@ -4,11 +4,16 @@
     <!-- 工时汇总卡片 -->
     <el-card class="summary-card" shadow="never">
       <template #header>
-        <span>工时汇总</span>
-        <el-button type="primary" size="small" @click="openCreateDialog">
-          <el-icon><Plus /></el-icon>
-          记录工时
-        </el-button>
+        <div class="card-header">
+          <span>工时汇总</span>
+          <div class="header-actions">
+            <PageHelpDrawer pageKey="project_work_hours_tab" />
+            <el-button type="primary" size="small" @click="openCreateDialog">
+              <el-icon><Plus /></el-icon>
+              记录工时
+            </el-button>
+          </div>
+        </div>
       </template>
       <el-row :gutter="16" v-loading="summaryLoading">
         <el-col :span="6">
@@ -156,6 +161,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import FieldTip from '../../components/FieldTip.vue'
+import PageHelpDrawer from '../../components/PageHelpDrawer.vue'
 import * as v17Api from '../../api/v17'
 
 const props = defineProps({
@@ -289,6 +295,18 @@ onMounted(() => {
 
 .summary-card {
   margin-bottom: 16px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .summary-item {

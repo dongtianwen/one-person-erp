@@ -1,6 +1,7 @@
 <template>
   <div>
     <div class="tab-toolbar">
+      <PageHelpDrawer pageKey="project_requirements_tab" />
       <el-button type="primary" size="small" @click="showForm = true"><el-icon><Plus /></el-icon> 新建版本</el-button>
     </div>
     <!-- 当前版本 -->
@@ -52,6 +53,7 @@
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import PageHelpDrawer from '../../components/PageHelpDrawer.vue'
 import { getRequirements, createRequirement, setCurrentRequirement } from '../../api/requirements'
 
 const props = defineProps({ projectId: { type: Number, required: true } })
@@ -103,5 +105,5 @@ watch(() => props.projectId, () => loadData(), { immediate: true })
 .change-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
 .history-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
 .empty-hint { color: #999; text-align: center; padding: 24px; }
-.tab-toolbar { margin-bottom: 12px; }
+.tab-toolbar { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 </style>

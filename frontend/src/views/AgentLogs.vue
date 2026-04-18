@@ -2,6 +2,7 @@
   <div class="agent-logs-page">
     <div class="page-header">
       <h2>Agent 运行日志</h2>
+      <PageHelpDrawer pageKey="agent_logs" />
       <el-button @click="fetchRuns" :loading="loading">刷新</el-button>
     </div>
 
@@ -101,6 +102,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import { getAgentRuns, getAgentRun } from '../api/agents'
+import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 
 const runs = ref([])
 const loading = ref(false)

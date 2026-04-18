@@ -6,6 +6,7 @@
           <el-icon><ArrowLeft /></el-icon> 返回
         </el-button>
         <h2 v-if="customer">{{ customer.name }}</h2>
+        <PageHelpDrawer pageKey="customer_detail" />
       </div>
       <el-tag v-if="customer" :type="statusTypes[customer.status] || 'info'" size="large" round>
         {{ statusLabels[customer.status] || customer.status }}
@@ -315,6 +316,7 @@ import { generateReport, listReports, getReport, deleteReport as deleteReportApi
 import api from '../api/index'
 
 import { Plus } from '@element-plus/icons-vue'
+import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 
 const route = useRoute()
 const router = useRouter()

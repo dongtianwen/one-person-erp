@@ -3,7 +3,7 @@
     <div class="page-header">
       <div class="header-title-group">
         <span class="header-count mono">总计：{{ projects.length }} 个项目</span>
-        <PageHelpDrawer pageKey="project_detail" />
+        <PageHelpDrawer pageKey="project_list" />
       </div>
       <el-button type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon>
@@ -154,6 +154,7 @@
           </el-tag>
           <span class="detail-budget mono" v-if="detailProject.budget">¥{{ detailProject.budget.toLocaleString() }}</span>
           <span class="detail-progress mono">{{ detailProject.progress || 0 }}%</span>
+          <PageHelpDrawer pageKey="project_detail" />
           <!-- v1.7 关闭项目按钮 -->
           <el-button
             v-if="detailProject.status !== 'completed'"
@@ -225,7 +226,7 @@
             <div class="profit-item">
               <span class="profit-label">人力成本</span>
               <span class="profit-value">{{ profitData.cost?.labor_cost != null ? '¥' + Number(profitData.cost.labor_cost).toLocaleString() : '—' }}</span>
-              <span class="profit-sub">{{ profitData.cost?.labor_cost != null ? '' : '无工时数据' }}</span>
+              <span class="profit-sub">{{ getLaborCostHint() }}</span>
             </div>
             <div class="profit-item">
               <span class="profit-label">固定成本</span>
@@ -260,6 +261,7 @@
         <!-- Tasks Tab -->
         <el-tab-pane label="任务" name="tasks">
           <div class="tab-toolbar">
+            <PageHelpDrawer pageKey="project_tasks_tab" />
             <el-button type="primary" size="small" @click="openTaskCreate">
               <el-icon><Plus /></el-icon> 新建任务
             </el-button>
@@ -291,6 +293,7 @@
         <!-- Milestones Tab -->
         <el-tab-pane label="里程碑" name="milestones">
           <div class="tab-toolbar">
+            <PageHelpDrawer pageKey="project_milestones_tab" />
             <el-button type="primary" size="small" @click="openMilestoneCreate">
               <el-icon><Plus /></el-icon> 新建里程碑
             </el-button>
@@ -604,8 +607,8 @@ const editingId = ref(null)
 const defaultForm = { name: '', customer_id: null, description: '', status: 'requirements', budget: null, start_date: '', end_date: '' }
 const form = ref({ ...defaultForm })
 
-const statusLabels = { requirements: '需求', design: '设计', development: '开发', testing: '测试', delivery: '交付', paused: '暂停' }
-const statusTypes = { requirements: 'info', design: '', development: 'primary', testing: 'warning', delivery: 'success', paused: 'info' }
+const statusLabels = { requirements: '需求', design: '设计', development: '开发', testing: '测试', delivery: '交付', completed: '已完成', paused: '暂停' }
+const statusTypes = { requirements: 'info', design: '', development: 'primary', testing: 'warning', delivery: 'success', completed: 'success', paused: 'info' }
 
 // Detail dialog state
 const showDetail = ref(false)
@@ -645,6 +648,17 @@ const closeLoading = ref(false)
 // v1.9 利润分析
 const profitData = ref({ revenue: {}, cost: {}, profit: {}, warnings: [] })
 const profitWarnings = ref([])
+
+const getLaborCostHint = () => {
+  const cost = profitData.value?.cost
+  if (!cost) return ''
+  if (cost.labor_cost != null) return ''
+  const hours = cost.labor_hours_actual || 0
+  const dailyRate = cost.daily_rate_used
+  if (hours === 0) return '无工时记录'
+  if (!dailyRate) return '报价单无日费率'
+  return ''
+}
 const profitRefreshing = ref(false)
 
 const progressColor = (p) => {
@@ -1156,6 +1170,9 @@ const handleDeleteProjectReport = async (id) => {
 
 .tab-toolbar {
   margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .empty-hint {

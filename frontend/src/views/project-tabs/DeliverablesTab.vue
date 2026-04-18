@@ -1,6 +1,7 @@
 <template>
   <div>
     <div class="tab-toolbar">
+      <PageHelpDrawer pageKey="project_deliverables_tab" />
       <el-button type="primary" size="small" @click="openCreate"><el-icon><Plus /></el-icon> 新建交付物</el-button>
       <el-select v-model="typeFilter" placeholder="按类型筛选" clearable size="small" style="width:140px;margin-left:12px" @change="loadData">
         <el-option v-for="(label, val) in typeLabels" :key="val" :label="label" :value="val" />
@@ -9,6 +10,7 @@
     <el-table :data="deliverables" style="width:100%" size="small" v-if="deliverables.length">
       <el-table-column prop="name" label="交付物名称" min-width="140" />
       <el-table-column prop="deliverable_type" label="类型" width="100">
+        <template #label>类型 <FieldTip module="project_deliverables" field="delivery_status" /></template>
         <template #default="{ row }">
           <el-tag size="small" :type="typeTagColor[row.deliverable_type] || 'info'">{{ typeLabels[row.deliverable_type] || row.deliverable_type }}</el-tag>
         </template>
@@ -60,6 +62,7 @@
 import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import PageHelpDrawer from '../../components/PageHelpDrawer.vue'
 import { getDeliverables, createDeliverable } from '../../api/deliverables'
 
 const props = defineProps({ projectId: { type: Number, required: true } })
@@ -114,7 +117,7 @@ watch(() => props.projectId, () => loadData(), { immediate: true })
 </script>
 
 <style scoped>
-.tab-toolbar { margin-bottom: 12px; display: flex; align-items: center; }
+.tab-toolbar { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 .empty-hint { color: #999; text-align: center; padding: 24px; }
 .account-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 </style>

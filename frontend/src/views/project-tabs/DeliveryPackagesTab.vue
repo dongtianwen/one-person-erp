@@ -1,6 +1,7 @@
 <template>
   <div>
     <div class="tab-toolbar">
+      <PageHelpDrawer pageKey="project_delivery_packages_tab" />
       <el-button type="primary" size="small" @click="openCreate"><el-icon><Plus /></el-icon> 新建交付包</el-button>
     </div>
 
@@ -55,6 +56,7 @@
       </el-table-column>
       <el-table-column prop="name" label="交付包名称" min-width="150" />
       <el-table-column prop="status" label="状态" width="110">
+        <template #label>状态 <FieldTip module="delivery_package" field="status" /></template>
         <template #default="{ row }">
           <el-tag :type="pkgStatusType[row.status] || 'info'" size="small">{{ pkgStatusLabel[row.status] || row.status }}</el-tag>
         </template>
@@ -175,6 +177,8 @@ import { ref } from 'vue'
 import { watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import FieldTip from '../../components/FieldTip.vue'
+import PageHelpDrawer from '../../components/PageHelpDrawer.vue'
 import {
   getDeliveryPackages, createDeliveryPackage, updateDeliveryPackage,
   deleteDeliveryPackage, deliverPackage, createPackageAcceptance,
@@ -422,7 +426,7 @@ const handleRunQc = async (row) => {
 </script>
 
 <style scoped>
-.tab-toolbar { margin-bottom: 12px; }
+.tab-toolbar { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 .empty-hint { color: #999; text-align: center; padding: 24px; }
 .expand-content { padding: 12px 20px; }
 .expand-content h4 { margin: 0 0 8px; font-size: 13px; color: #333; }

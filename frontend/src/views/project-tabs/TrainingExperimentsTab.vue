@@ -1,17 +1,20 @@
 <template>
   <div>
     <div class="tab-toolbar">
+      <PageHelpDrawer pageKey="project_training_experiments_tab" />
       <el-button type="primary" size="small" @click="openCreate"><el-icon><Plus /></el-icon> 新建实验</el-button>
     </div>
 
     <el-table :data="experiments" style="width:100%" size="small" v-if="experiments.length">
       <el-table-column prop="name" label="实验名称" min-width="140" />
       <el-table-column prop="framework" label="框架" width="110">
+        <template #label>框架 <FieldTip module="training_experiment" field="framework" /></template>
         <template #default="{ row }">
           <span>{{ row.framework || '-' }}</span>
         </template>
       </el-table-column>
       <el-table-column prop="status" label="状态" width="100">
+        <template #label>状态 <FieldTip module="training_experiment" field="status" /></template>
         <template #default="{ row }">
           <el-tag :type="expStatusType[row.status] || 'info'" size="small">{{ expStatusLabel[row.status] || row.status }}</el-tag>
         </template>
@@ -88,6 +91,8 @@ import { ref, computed } from 'vue'
 import { watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import FieldTip from '../../components/FieldTip.vue'
+import PageHelpDrawer from '../../components/PageHelpDrawer.vue'
 import {
   getTrainingExperiments, createTrainingExperiment, updateTrainingExperiment,
   deleteTrainingExperiment, linkDatasetVersion, unlinkDatasetVersion,
@@ -234,7 +239,7 @@ watch(() => props.projectId, () => loadData(), { immediate: true })
 </script>
 
 <style scoped>
-.tab-toolbar { margin-bottom: 12px; }
+.tab-toolbar { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 .empty-hint { color: #999; text-align: center; padding: 24px; }
 .linked-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .link-tag { margin: 0; }

@@ -2,6 +2,7 @@
   <div class="workflow-guide-page">
     <div class="page-header">
       <h2>业务流程与核心概念</h2>
+      <PageHelpDrawer pageKey="workflow_guide" />
       <p class="page-desc">了解系统业务流程和关键术语定义</p>
     </div>
 
@@ -72,6 +73,7 @@ import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { WORKFLOW_STEPS, CORE_CONCEPTS } from '../constants/help'
+import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 
 const route = useRoute()
 const activeTab = ref('workflow')

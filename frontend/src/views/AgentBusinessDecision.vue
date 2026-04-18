@@ -2,6 +2,7 @@
   <div class="agent-page">
     <div class="page-header">
       <h2>经营决策 Agent</h2>
+      <PageHelpDrawer pageKey="agent_decision" />
       <div class="header-actions">
         <el-switch
           v-model="useLlM"
@@ -117,6 +118,7 @@ import {
   getAgentRuns,
   getAgentConfig,
 } from '../api/agents'
+import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 
 const running = ref(false)
 const useLlM = ref(true)

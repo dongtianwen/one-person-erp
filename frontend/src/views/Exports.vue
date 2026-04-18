@@ -4,6 +4,7 @@
       <div class="header-title-group">
         <h2>数据导出</h2>
         <span class="header-desc">导出财务报表、客户列表、项目列表等数据</span>
+        <PageHelpDrawer pageKey="finance_export" />
       </div>
     </div>
 
@@ -202,6 +203,7 @@ import {
   Check, InfoFilled, QuestionFilled, Watch, CircleCheckFilled 
 } from '@element-plus/icons-vue'
 import api from '../api'
+import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 
 const typeIcons = {
   finance_report: 'TrendCharts',

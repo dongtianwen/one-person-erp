@@ -2,6 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <span class="page-title">公司设置</span>
+      <PageHelpDrawer pageKey="company_settings" />
       <el-button type="primary" :loading="saving" @click="handleSave">
         <el-icon><Check /></el-icon>
         保存
@@ -67,6 +68,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Check } from '@element-plus/icons-vue'
 import { getCompanySettings, updateCompanySettings } from '../api/company'
+import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 
 const loading = ref(false)
 const saving = ref(false)

@@ -2,6 +2,7 @@
   <div class="qa-page">
     <div class="page-header">
       <h2>经营助手</h2>
+      <PageHelpDrawer pageKey="qa_assistant" />
       <el-tag v-if="providerAvailable" type="success" size="small">{{ providerModel }}</el-tag>
       <el-tag v-else type="info" size="small">API 未配置</el-tag>
     </div>
@@ -59,6 +60,7 @@
 import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { askQuestion, getProviderStatus } from '../api/qa'
+import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 
 const messages = ref([])
 const inputText = ref('')

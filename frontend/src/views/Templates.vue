@@ -3,7 +3,7 @@
     <div class="page-header">
       <div class="header-title-group">
         <span class="header-count mono">总计：{{ records.length }} 个模板</span>
-        <PageHelpDrawer pageKey="template_list" />
+        <PageHelpDrawer pageKey="templates" />
       </div>
       <el-button type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon>

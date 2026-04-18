@@ -52,7 +52,8 @@
 
       <el-table :data="records" style="width: 100%" v-loading="loading">
         <el-table-column type="selection" width="50" />
-        <el-table-column prop="type" label="类型" width="60">
+        <el-table-column prop="type" width="60">
+          <template #label>类型 <FieldTip module="finance_all" field="type" /></template>
           <template #default="{ row }">
             <div class="type-indicator" :class="row.type">
               {{ row.type === 'income' ? '收' : '支' }}
@@ -93,13 +94,15 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="funding_source" label="资金来源" width="90">
+        <el-table-column prop="funding_source" width="90">
+          <template #label>资金来源 <FieldTip module="finance_all" field="funding_source" /></template>
           <template #default="{ row }">
             <span v-if="row.funding_source">{{ fundingSourceLabels[row.funding_source] || row.funding_source }}</span>
             <span v-else class="text-tertiary">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="settlement_status" label="结算状态" width="90">
+        <el-table-column prop="settlement_status" width="90">
+          <template #label>结算状态 <FieldTip module="finance_all" field="settlement_status" /></template>
           <template #default="{ row }">
             <div v-if="needsSettlement(row)" class="status-dot-wrapper" style="background: transparent; border: none; padding: 0;">
               <div class="status-dot" :class="settlementType(row.settlement_status) || 'info'"></div>
@@ -228,11 +231,15 @@
                 <el-table-column prop="batch_id" label="批次号" width="180">
                   <template #default="{ row }"><span class="mono">{{ row.batch_id }}</span></template>
                 </el-table-column>
-                <el-table-column prop="export_type" label="类型" width="100" />
+                <el-table-column prop="export_type" width="100">
+                  <template #label>类型 <FieldTip module="finance_export" field="export_type" /></template>
+                </el-table-column>
                 <el-table-column prop="record_count" label="记录数" width="80" align="right">
                   <template #default="{ row }"><span class="mono">{{ row.record_count || 0 }}</span></template>
                 </el-table-column>
-                <el-table-column prop="target_format" label="格式" width="100" />
+                <el-table-column prop="target_format" width="100">
+                  <template #label>格式 <FieldTip module="finance_export" field="target_format" /></template>
+                </el-table-column>
                 <el-table-column prop="created_at" label="创建时间" width="160" />
                 <el-table-column label="操作" width="100">
                   <template #default="{ row }">
@@ -263,7 +270,8 @@
                   <template #default="{ row }"><span class="mono">{{ row.contract_no }}</span></template>
                 </el-table-column>
                 <el-table-column prop="customer_name" label="客户" width="120" />
-                <el-table-column label="差异类型" min-width="200">
+                <el-table-column min-width="200">
+                  <template #label>差异类型 <FieldTip module="finance_consistency" field="gap" /></template>
                   <template #default="{ row }">
                     <el-tag
                       v-for="issue in row.issues"
@@ -408,7 +416,7 @@
               </div>
 
               <div class="breakdown-section">
-                <h4>客户维度分解</h4>
+                <h4>客户维度分解 <FieldTip module="finance_reconciliation" field="breakdown" /></h4>
                 <el-table :data="reconciliationReport.breakdown || []" style="width: 100%" size="small">
                   <el-table-column prop="customer_name" label="客户名称" width="150" />
                   <el-table-column label="本期合同" width="120" align="right">
@@ -746,8 +754,12 @@ const activeTab = ref('all')
 
 // v1.10 帮助系统——根据当前 Tab 显示对应页面帮助
 const financeHelpKeyMap = {
+  all: 'finance_all',
+  invoice: 'invoice_ledger',
   export: 'finance_export',
   consistency: 'consistency_check',
+  'fixed-costs': 'fixed_costs',
+  'input-invoices': 'input_invoices',
   reconciliation: 'reconciliation',
 }
 const financeHelpKey = computed(() => financeHelpKeyMap[activeTab.value] || '')

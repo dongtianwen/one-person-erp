@@ -1,6 +1,7 @@
 <template>
   <div>
     <div class="tab-toolbar">
+      <PageHelpDrawer pageKey="project_datasets_tab" />
       <el-button type="primary" size="small" @click="openCreateDataset"><el-icon><Plus /></el-icon> 新建数据集</el-button>
     </div>
 
@@ -18,11 +19,14 @@
       <el-table :data="ds._versions || []" style="width:100%" size="small" v-if="ds._versions && ds._versions.length">
         <el-table-column prop="version_no" label="版本号" width="100" />
         <el-table-column prop="status" label="状态" width="100">
+          <template #label>状态 <FieldTip module="dataset_version" field="status" /></template>
           <template #default="{ row }">
             <el-tag :type="versionStatusType[row.status] || 'info'" size="small">{{ versionStatusLabel[row.status] || row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="sample_count" label="样本数" width="90" />
+        <el-table-column prop="sample_count" label="样本数" width="90">
+          <template #label>样本数 <FieldTip module="dataset_version" field="sample_count" /></template>
+        </el-table-column>
         <el-table-column prop="file_path" label="文件路径" min-width="150" show-overflow-tooltip />
         <el-table-column prop="data_source" label="数据来源" width="120" />
         <el-table-column prop="label_schema_version" label="标注Schema版本" width="130" />
@@ -98,6 +102,8 @@ import { ref, computed } from 'vue'
 import { watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import FieldTip from '../../components/FieldTip.vue'
+import PageHelpDrawer from '../../components/PageHelpDrawer.vue'
 import {
   getDatasets, createDataset, updateDataset, deleteDataset,
   getDatasetVersions, createDatasetVersion, updateDatasetVersion,
@@ -230,7 +236,7 @@ watch(() => props.projectId, () => loadData(), { immediate: true })
 </script>
 
 <style scoped>
-.tab-toolbar { margin-bottom: 12px; }
+.tab-toolbar { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 .empty-hint { color: #999; text-align: center; padding: 24px; }
 .dataset-block { margin-bottom: 20px; border: 1px solid #ebeef5; border-radius: 4px; padding: 12px; }
 .dataset-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }

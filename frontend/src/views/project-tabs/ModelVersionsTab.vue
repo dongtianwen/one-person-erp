@@ -1,12 +1,14 @@
 <template>
   <div>
     <div class="tab-toolbar">
+      <PageHelpDrawer pageKey="project_model_versions_tab" />
       <el-button type="primary" size="small" @click="openCreate"><el-icon><Plus /></el-icon> 新建模型版本</el-button>
     </div>
 
     <el-table :data="modelVersions" style="width:100%" size="small" v-if="modelVersions.length">
       <el-table-column prop="version_no" label="版本号" width="110" />
       <el-table-column prop="status" label="状态" width="110">
+        <template #label>状态 <FieldTip module="model_version" field="status" /></template>
         <template #default="{ row }">
           <el-tag :type="mvStatusType[row.status] || 'info'" size="small">{{ mvStatusLabel[row.status] || row.status }}</el-tag>
         </template>
@@ -14,6 +16,7 @@
       <el-table-column prop="experiment_name" label="来源实验" min-width="130" show-overflow-tooltip />
       <el-table-column prop="model_path" label="模型路径" min-width="150" show-overflow-tooltip />
       <el-table-column label="指标" min-width="140" show-overflow-tooltip>
+        <template #label>指标 <FieldTip module="model_version" field="metrics" /></template>
         <template #default="{ row }">
           <span class="mono">{{ formatMetrics(row.metrics) }}</span>
         </template>
@@ -67,6 +70,7 @@ import { ref, computed } from 'vue'
 import { watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import PageHelpDrawer from '../../components/PageHelpDrawer.vue'
 import {
   getModelVersions, createModelVersion, updateModelVersion,
   deleteModelVersion, markModelReady, markModelDeprecate,
@@ -197,6 +201,6 @@ watch(() => props.projectId, () => loadData(), { immediate: true })
 </script>
 
 <style scoped>
-.tab-toolbar { margin-bottom: 12px; }
+.tab-toolbar { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 .empty-hint { color: #999; text-align: center; padding: 24px; }
 </style>

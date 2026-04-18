@@ -1,4 +1,5 @@
 """v1.4 项目利润核算核心函数 + v1.9 粗利润视图。"""
+# v2.2 fix: 优先查询 accepted 状态的报价单获取日费率
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Optional
@@ -109,9 +110,10 @@ async def get_project_labor_cost(db: AsyncSession, project_id: int) -> dict:
     result = await db.execute(stmt_hours)
     hours_total = Decimal(str(result.scalar()))
 
-    # 获取关联报价单的 daily_rate
+    # 获取关联报价单的 daily_rate（优先 accepted 状态）
     stmt_quote = select(Quotation.daily_rate).where(
         Quotation.project_id == project_id,
+        Quotation.status == 'accepted',
     ).order_by(Quotation.created_at.desc())
     result_q = await db.execute(stmt_quote)
     row_q = result_q.first()
