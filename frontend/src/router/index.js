@@ -98,6 +98,26 @@ const routes = [
         path: 'assistant/qa',
         name: 'QaAssistant',
         component: () => import('../views/QaAssistant.vue')
+      },
+      {
+        path: 'minutes',
+        name: 'MinutesList',
+        component: () => import('../views/minutes/MinutesListView.vue')
+      },
+      {
+        path: 'minutes/:id',
+        name: 'MinutesDetail',
+        component: () => import('../views/minutes/MinutesDetailView.vue')
+      },
+      {
+        path: 'tools/entries',
+        name: 'ToolEntries',
+        component: () => import('../views/tools/ToolEntriesView.vue')
+      },
+      {
+        path: 'leads',
+        name: 'Leads',
+        component: () => import('../views/leads/LeadsView.vue')
       }
     ]
   }

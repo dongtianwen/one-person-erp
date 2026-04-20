@@ -312,72 +312,29 @@ async def get_tax_summary(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """FR-303 季度增值税汇总统计"""
-    from decimal import Decimal
-    from app.core.finance_utils import get_quarter_date_range
-    from app.core.constants import INVOICE_DIRECTION_OUTPUT, INVOICE_DIRECTION_INPUT, INVOICE_TYPE_SPECIAL
+    """FR-303 季度增值税汇总统计（可配置：小规模 / 一般纳税人）"""
+    from app.core.tax_calculator import TaxConfig, TaxCalculator
 
-    start_date, end_date = get_quarter_date_range(year, quarter)
+    config = await TaxConfig.load_from_db(db)
+    calc = TaxCalculator(config)
+    result = await calc.calculate_quarterly(db, year, quarter)
 
-    # 销项税合计：invoice_direction = output 的所有记录
-    output_result = await db.execute(
-        select(func.coalesce(func.sum(FinanceRecord.tax_amount), 0)).where(
-            FinanceRecord.invoice_direction == INVOICE_DIRECTION_OUTPUT,
-            FinanceRecord.date >= start_date,
-            FinanceRecord.date <= end_date,
-            FinanceRecord.is_deleted == False,
-        )
+    logger.info(
+        "tax_summary | year=%s quarter=%s type=%s payable=%s sales=%s exempt=%s note=%s",
+        year, quarter, result.payer_type, result.tax_payable,
+        result.quarterly_sales, result.is_exempt, result.note,
     )
-    output_tax_total = float(output_result.scalar() or 0)
-    output_tax_total = round(output_tax_total, 2)
-
-    # 销项记录数
-    output_count_result = await db.execute(
-        select(func.count(FinanceRecord.id)).where(
-            FinanceRecord.invoice_direction == INVOICE_DIRECTION_OUTPUT,
-            FinanceRecord.date >= start_date,
-            FinanceRecord.date <= end_date,
-            FinanceRecord.is_deleted == False,
-        )
-    )
-    output_count = output_count_result.scalar() or 0
-
-    # 进项税合计：invoice_direction = input AND invoice_type = special
-    input_result = await db.execute(
-        select(func.coalesce(func.sum(FinanceRecord.tax_amount), 0)).where(
-            FinanceRecord.invoice_direction == INVOICE_DIRECTION_INPUT,
-            FinanceRecord.invoice_type == INVOICE_TYPE_SPECIAL,
-            FinanceRecord.date >= start_date,
-            FinanceRecord.date <= end_date,
-            FinanceRecord.is_deleted == False,
-        )
-    )
-    input_tax_total = float(input_result.scalar() or 0)
-    input_tax_total = round(input_tax_total, 2)
-
-    # 进项记录数（仅专用发票）
-    input_count_result = await db.execute(
-        select(func.count(FinanceRecord.id)).where(
-            FinanceRecord.invoice_direction == INVOICE_DIRECTION_INPUT,
-            FinanceRecord.invoice_type == INVOICE_TYPE_SPECIAL,
-            FinanceRecord.date >= start_date,
-            FinanceRecord.date <= end_date,
-            FinanceRecord.is_deleted == False,
-        )
-    )
-    input_count = input_count_result.scalar() or 0
-
-    tax_payable = round(output_tax_total - input_tax_total, 2)
-    logger.info("tax_summary | year=%s quarter=%s output=%s input=%s payable=%s", year, quarter, output_tax_total, input_tax_total, tax_payable)
 
     return {
-        "year": year,
-        "quarter": quarter,
-        "output_tax_total": output_tax_total,
-        "input_tax_total": input_tax_total,
-        "tax_payable": tax_payable,
-        "record_count": {
-            "output": output_count,
-            "input": input_count,
-        },
+        "year": result.year,
+        "quarter": result.quarter,
+        "payer_type": result.payer_type,
+        "output_tax_total": result.output_tax_total,
+        "input_tax_total": result.input_tax_total,
+        "tax_payable": result.tax_payable,
+        "quarterly_sales": result.quarterly_sales,
+        "is_exempt": result.is_exempt,
+        "effective_rate": result.effective_rate,
+        "note": result.note,
+        "record_count": result.record_count,
     }

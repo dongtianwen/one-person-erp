@@ -122,38 +122,57 @@ async def _compute_metric(db: AsyncSession, metric_key: str) -> Any:
 
         if metric_key == METRIC_PROJECT_ACTIVE_COUNT:
             result = await db.execute(
-                select(func.count(Project.id)).where(Project.status.in_(["active", "in_progress"]))
+                select(func.count(Project.id)).where(
+                    Project.status.notin_(["completed", "paused", "delivery"]),
+                    Project.is_deleted == False,
+                )
             )
             return result.scalar() or 0
 
         if metric_key == METRIC_PROJECT_AT_RISK_COUNT:
             result = await db.execute(
-                select(func.count(Project.id)).where(Project.status.in_(["active", "in_progress"]))
+                select(func.count(Project.id)).where(
+                    Project.status.notin_(["completed", "paused", "delivery"]),
+                    Project.is_deleted == False,
+                )
             )
             return result.scalar() or 0
 
         if metric_key == METRIC_CONTRACT_ACTIVE_COUNT:
             result = await db.execute(
-                select(func.count(Contract.id)).where(Contract.status.in_(["active", "executing"]))
+                select(func.count(Contract.id)).where(
+                    Contract.status.in_(["active", "executing"]),
+                    Contract.is_deleted == False,
+                )
             )
             return result.scalar() or 0
 
         if metric_key == METRIC_CONTRACT_TOTAL_AMOUNT:
             result = await db.execute(
                 select(func.coalesce(func.sum(Contract.amount), 0)).where(
-                    Contract.status.in_(["active", "executing"])
+                    Contract.status.in_(["active", "executing"]),
+                    Contract.is_deleted == False,
                 )
             )
             return float(result.scalar() or 0)
 
         if metric_key == METRIC_FINANCE_RECEIVABLE_TOTAL:
-            result = await db.execute(
-                select(func.coalesce(func.sum(FinanceRecord.amount), 0)).where(
-                    FinanceRecord.record_type == "income",
-                    FinanceRecord.status == "pending",
+            contract_total = await db.execute(
+                select(func.coalesce(func.sum(Contract.amount), 0)).where(
+                    Contract.status.in_(["active", "executing"]),
+                    Contract.is_deleted == False,
                 )
             )
-            return float(result.scalar() or 0)
+            paid_total = await db.execute(
+                select(func.coalesce(func.sum(FinanceRecord.amount), 0)).where(
+                    FinanceRecord.type == "income",
+                    FinanceRecord.status.in_(["paid", "confirmed"]),
+                    FinanceRecord.is_deleted == False,
+                )
+            )
+            ct = float(contract_total.scalar() or 0)
+            pt = float(paid_total.scalar() or 0)
+            return max(0.0, round(ct - pt, 2))
 
         if metric_key == METRIC_FINANCE_OVERDUE_TOTAL:
             from datetime import datetime

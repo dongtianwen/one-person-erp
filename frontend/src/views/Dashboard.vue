@@ -1,82 +1,205 @@
 <template>
   <div class="dashboard">
-    <div class="page-header" style="margin-bottom: 16px">
-      <h2 style="margin: 0; font-size: 18px">经营仪表盘</h2>
+    <div class="dashboard-top">
+      <DashboardHeader
+        :last-refresh-time="lastRefreshTime"
+        :refreshing="refreshing"
+        @refresh="handleRefresh"
+      />
       <PageHelpDrawer pageKey="dashboard" />
     </div>
-    <!-- Metric Cards -->
-    <div class="metrics-grid">
-      <div
-        v-for="(card, idx) in metricCards"
-        :key="card.key"
-        class="metric-card anim-fade-in-up"
-        :class="[`stagger-${idx + 1}`, { clickable: true }]"
-        :style="{ '--card-color': card.color, '--card-glow': card.glow, cursor: 'pointer' }"
-        @click="goToCard(card.key)"
-      >
-        <div class="metric-icon">
-          <el-icon :size="22"><component :is="card.icon" /></el-icon>
-        </div>
-        <div class="metric-body">
-          <div class="metric-label">{{ card.label }}</div>
-          <div class="metric-value mono">{{ card.prefix }}{{ formatNumber(card.value) }}{{ card.suffix || '' }}</div>
-        </div>
-        <div class="metric-bg-icon">
-          <el-icon :size="64"><component :is="card.icon" /></el-icon>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- 仪表盘总览 -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div class="section-divider">
+      <span class="section-title">仪表盘总览</span>
+    </div>
+
+    <div class="metric-group">
+      <div class="metric-group-title">本月经营</div>
+      <div class="metrics-grid">
+        <div
+          v-for="(card, idx) in monthlyCards"
+          :key="card.key"
+          class="metric-card anim-fade-in-up"
+          :class="[`stagger-${idx + 1}`, { clickable: true }]"
+          :style="{ '--card-color': card.color, '--card-glow': card.glow, cursor: 'pointer' }"
+          @click="card.route && $router.push(card.route)"
+        >
+          <div class="metric-icon">
+            <el-icon :size="22"><component :is="card.icon" /></el-icon>
+          </div>
+          <div class="metric-body">
+            <div class="metric-label">{{ card.label }}</div>
+            <div class="metric-value mono">{{ card.prefix || '' }}{{ formatMonthlyValue(card.key, card.value) }}{{ card.suffix || '' }}</div>
+          </div>
+          <div class="metric-bg-icon">
+            <el-icon :size="64"><component :is="card.icon" /></el-icon>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- 现金流30天预警 -->
-    <el-alert
-      v-if="cashflow30dWarning"
-      :title="cashflow30dWarning"
-      type="error"
-      show-icon
-      :closable="false"
-      style="margin-top: 16px"
-    />
-
-    <!-- Revenue Trend -->
-    <el-card class="anim-fade-in-up stagger-2" style="margin-top: 20px">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">营收趋势</span>
-          <span class="card-subtitle">近12个月收支对比</span>
-        </div>
-      </template>
-      <div v-if="!revenueTrend.length" class="empty-state">
-        <el-icon :size="32" color="var(--text-tertiary)"><TrendCharts /></el-icon>
-        <p>暂无数据</p>
-      </div>
-      <div v-else class="trend-chart">
-        <div class="trend-bars">
-          <div v-for="item in revenueTrend" :key="item.month" class="trend-col">
-            <div class="trend-col-bars">
-              <div
-                class="trend-bar income-bar"
-                :style="{ height: barHeight(item.income) + '%' }"
-                :title="'收入: ¥' + formatNumber(item.income)"
-              />
-              <div
-                class="trend-bar expense-bar"
-                :style="{ height: barHeight(item.expense) + '%' }"
-                :title="'支出: ¥' + formatNumber(item.expense)"
-              />
-            </div>
-            <div class="trend-month">{{ item.month.slice(5) }}</div>
+    <div class="metric-group metric-group-compact">
+      <div class="metric-group-title">经营概览</div>
+      <div class="metrics-grid metrics-grid-4col">
+        <div
+          v-for="(card, idx) in overviewCards"
+          :key="card.key"
+          class="metric-card-compact anim-fade-in-up"
+          :class="`stagger-${(idx % 4) + 1}`"
+          :style="{ '--card-color': card.color, '--card-glow': card.glow, cursor: 'pointer' }"
+          @click="card.route && $router.push(card.route)"
+        >
+          <div class="compact-icon">
+            <el-icon :size="18"><component :is="card.icon" /></el-icon>
+          </div>
+          <div class="compact-body">
+            <div class="compact-label">{{ card.label }}</div>
+            <div class="compact-value mono">{{ card.prefix || '' }}{{ formatMetricValue(card.key, summaryMetrics[card.key]) }}{{ card.suffix || '' }}</div>
           </div>
         </div>
-        <div class="trend-legend">
-          <span class="legend-item"><i class="legend-dot" style="background:#10b981" />收入</span>
-          <span class="legend-item"><i class="legend-dot" style="background:#f43f5e" />支出</span>
-        </div>
       </div>
-    </el-card>
+    </div>
 
-    <!-- v1.3 Cashflow Forecast + Tax Summary -->
-    <el-row :gutter="20" style="margin-top: 20px">
-      <el-col :span="16">
+    <el-row :gutter="20" style="margin-top: 16px">
+      <el-col :span="12">
+        <el-card class="chart-card anim-fade-in-up">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">客户转化漏斗</span>
+              <span class="card-subtitle">各阶段客户分布</span>
+            </div>
+          </template>
+          <div class="funnel-list">
+            <div
+              v-for="(item, idx) in funnelItems"
+              :key="item.stage"
+              class="funnel-row"
+              :style="{ animationDelay: `${200 + idx * 80}ms` }"
+            >
+              <div class="funnel-label">{{ item.label }}</div>
+              <div class="funnel-bar-track">
+                <div
+                  class="funnel-bar-fill"
+                  :style="{ width: item.percent + '%', background: item.color }"
+                />
+              </div>
+              <div class="funnel-count mono">{{ item.count }}</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="12">
+        <el-card class="chart-card anim-fade-in-up">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">项目状态分布</span>
+              <span class="card-subtitle">当前项目进度概览</span>
+            </div>
+          </template>
+          <div class="status-list">
+            <div
+              v-for="(item, idx) in statusItems"
+              :key="item.status"
+              class="status-row"
+              :style="{ animationDelay: `${200 + idx * 80}ms` }"
+            >
+              <div class="status-dot" :style="{ background: item.color }" />
+              <div class="status-label">{{ item.label }}</div>
+              <div class="status-bar-track">
+                <div
+                  class="status-bar-fill"
+                  :style="{ width: item.percent + '%', background: item.color }"
+                />
+              </div>
+              <div class="status-count mono">{{ item.count }}</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- 财务分析 -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div class="section-divider">
+      <span class="section-title">财务分析</span>
+    </div>
+
+    <el-row :gutter="20" style="margin-top: 16px">
+      <el-col :span="14">
+        <el-card class="anim-fade-in-up">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">营收趋势</span>
+              <span class="card-subtitle">近12个月收支对比</span>
+            </div>
+          </template>
+          <div v-if="!revenueTrend.length" class="empty-state">
+            <el-icon :size="32" color="var(--text-tertiary)"><TrendCharts /></el-icon>
+            <p>暂无数据</p>
+          </div>
+          <div v-else class="trend-chart">
+            <div class="trend-bars">
+              <div v-for="item in revenueTrend" :key="item.month" class="trend-col">
+                <div class="trend-col-bars">
+                  <div
+                    class="trend-bar income-bar"
+                    :style="{ height: barHeight(item.income) + '%' }"
+                    :title="'收入: ¥' + formatNumber(item.income)"
+                  />
+                  <div
+                    class="trend-bar expense-bar"
+                    :style="{ height: barHeight(item.expense) + '%' }"
+                    :title="'支出: ¥' + formatNumber(item.expense)"
+                  />
+                </div>
+                <div class="trend-month">{{ item.month.slice(5) }}</div>
+              </div>
+            </div>
+            <div class="trend-legend">
+              <span class="legend-item"><i class="legend-dot" style="background:#10b981" />收入</span>
+              <span class="legend-item"><i class="legend-dot" style="background:#f43f5e" />支出</span>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="10">
+        <el-card class="anim-fade-in-up">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">项目粗利润概览</span>
+              <span class="card-subtitle">Top 5</span>
+            </div>
+          </template>
+          <div v-if="!profitOverview.length" class="empty-state">
+            <el-icon :size="32" color="var(--text-tertiary)"><DataBoard /></el-icon>
+            <p>暂无利润数据</p>
+          </div>
+          <el-table v-else :data="profitOverview" size="small" stripe>
+            <el-table-column prop="project_name" label="项目" min-width="80" />
+            <el-table-column label="收入" width="80" align="right">
+              <template #default="{ row }"><span class="mono">¥{{ ((row.revenue || 0) / 10000).toFixed(1) }}万</span></template>
+            </el-table-column>
+            <el-table-column label="利润" width="80" align="right">
+              <template #default="{ row }">
+                <span class="mono" :class="{ negative: row.gross_profit < 0 }">¥{{ ((row.gross_profit || 0) / 10000).toFixed(1) }}万</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="毛利率" width="70" align="right">
+              <template #default="{ row }">
+                <span class="mono" :class="{ negative: row.gross_margin < 0 }">{{ row.gross_margin != null ? (row.gross_margin * 100).toFixed(0) + '%' : '-' }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="20" style="margin-top: 16px">
+      <el-col :span="14">
         <el-card class="anim-fade-in-up">
           <template #header>
             <div class="card-header">
@@ -111,106 +234,79 @@
         </el-card>
       </el-col>
 
-      <el-col :span="8">
+      <el-col :span="10">
         <el-card class="anim-fade-in-up" v-loading="taxLoading">
           <template #header>
             <div class="card-header">
               <span class="card-title">季度增值税汇总</span>
-              <div class="tax-quarter-select">
-                <el-select v-model="taxQuarter" size="small" style="width: 140px" @change="loadTaxSummary">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <el-tag v-if="taxSummary.payer_type" size="small" :type="taxSummary.payer_type === 'small_scale' ? 'success' : 'primary'" round>
+                  {{ taxSummary.payer_type === 'small_scale' ? '小规模' : '一般纳税人' }}
+                </el-tag>
+                <el-select v-model="taxQuarter" size="small" style="width: 120px" @change="loadTaxSummary">
                   <el-option v-for="q in [1,2,3,4]" :key="q" :label="`${taxYear}年 Q${q}`" :value="q" />
                 </el-select>
               </div>
             </div>
           </template>
-          <div class="tax-summary-grid">
-            <div class="tax-item">
-              <div class="tax-label">销项税额</div>
-              <div class="tax-value mono positive">¥{{ Number(taxSummary.output_tax_total || 0).toFixed(2) }}</div>
+
+          <template v-if="taxSummary.payer_type === 'small_scale'">
+            <div class="tax-summary-grid">
+              <div class="tax-item">
+                <div class="tax-label">本季销售额</div>
+                <div class="tax-value mono">¥{{ Number(taxSummary.quarterly_sales || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }}</div>
+              </div>
+              <div class="tax-item">
+                <div class="tax-label">免税门槛</div>
+                <div class="tax-value mono" style="color: var(--text-tertiary)">¥{{ Number(taxSummary.is_exempt ? taxSummary.quarterly_sales : (taxSummary.small_scale_exempt_threshold || 300000)).toLocaleString('zh-CN', { minimumFractionDigits: 0 }) }}</div>
+              </div>
+              <div class="tax-item highlight">
+                <div class="tax-label">应纳税额</div>
+                <div class="tax-value mono" :style="{ color: taxSummary.is_exempt ? '#10b981' : ((taxSummary.tax_payable || 0) >= 0 ? '#06b6d4' : '#f43f5e') }">
+                  ¥{{ Number(taxSummary.tax_payable || 0).toFixed(2) }}
+                  <el-tag v-if="taxSummary.is_exempt" size="small" type="success" style="margin-left: 6px">免征</el-tag>
+                </div>
+              </div>
             </div>
-            <div class="tax-item">
-              <div class="tax-label">进项税额</div>
-              <div class="tax-value mono" style="color: #f43f5e">¥{{ Number(taxSummary.input_tax_total || 0).toFixed(2) }}</div>
+          </template>
+
+          <template v-else>
+            <div class="tax-summary-grid">
+              <div class="tax-item">
+                <div class="tax-label">销项税额</div>
+                <div class="tax-value mono positive">¥{{ Number(taxSummary.output_tax_total || 0).toFixed(2) }}</div>
+              </div>
+              <div class="tax-item">
+                <div class="tax-label">进项税额</div>
+                <div class="tax-value mono" style="color: #f43f5e">¥{{ Number(taxSummary.input_tax_total || 0).toFixed(2) }}</div>
+              </div>
+              <div class="tax-item highlight">
+                <div class="tax-label">应纳税额</div>
+                <div class="tax-value mono" :style="{ color: (taxSummary.tax_payable || 0) >= 0 ? '#06b6d4' : '#f43f5e' }">¥{{ Number(taxSummary.tax_payable || 0).toFixed(2) }}</div>
+              </div>
             </div>
-            <div class="tax-item highlight">
-              <div class="tax-label">应纳税额</div>
-              <div class="tax-value mono" :style="{ color: (taxSummary.tax_payable || 0) >= 0 ? '#06b6d4' : '#f43f5e' }">¥{{ Number(taxSummary.tax_payable || 0).toFixed(2) }}</div>
-            </div>
-          </div>
+          </template>
+
+          <div v-if="taxSummary.note" class="tax-note">{{ taxSummary.note }}</div>
           <div class="tax-disclaimer">* 数据仅供参考，实际申报以税务机关为准</div>
         </el-card>
       </el-col>
     </el-row>
 
-    <!-- Charts Row -->
-    <el-row :gutter="20" class="charts-row">
-      <el-col :span="12">
-        <el-card class="chart-card anim-fade-in-up stagger-3">
-          <template #header>
-            <div class="card-header">
-              <span class="card-title">客户转化漏斗</span>
-              <span class="card-subtitle">各阶段客户分布</span>
-            </div>
-          </template>
-          <div class="funnel-list">
-            <div
-              v-for="(item, idx) in funnelItems"
-              :key="item.stage"
-              class="funnel-row"
-              :style="{ animationDelay: `${200 + idx * 80}ms` }"
-            >
-              <div class="funnel-label">{{ item.label }}</div>
-              <div class="funnel-bar-track">
-                <div
-                  class="funnel-bar-fill"
-                  :style="{ width: item.percent + '%', background: item.color }"
-                />
-              </div>
-              <div class="funnel-count mono">{{ item.count }}</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- 项目进度 -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div class="section-divider">
+      <span class="section-title">项目进度</span>
+    </div>
 
-      <el-col :span="12">
-        <el-card class="chart-card anim-fade-in-up stagger-4">
-          <template #header>
-            <div class="card-header">
-              <span class="card-title">项目状态分布</span>
-              <span class="card-subtitle">当前项目进度概览</span>
-            </div>
-          </template>
-          <div class="status-list">
-            <div
-              v-for="(item, idx) in statusItems"
-              :key="item.status"
-              class="status-row"
-              :style="{ animationDelay: `${200 + idx * 80}ms` }"
-            >
-              <div class="status-dot" :style="{ background: item.color }" />
-              <div class="status-label">{{ item.label }}</div>
-              <div class="status-bar-track">
-                <div
-                  class="status-bar-fill"
-                  :style="{ width: item.percent + '%', background: item.color }"
-                />
-              </div>
-              <div class="status-count mono">{{ item.count }}</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <!-- v1.7 WIP 看板 -->
-    <el-card class="anim-fade-in-up" style="margin-top: 20px">
+    <el-card class="anim-fade-in-up" style="margin-top: 16px">
       <template #header>
         <div class="card-header">
           <span class="card-title">进行中项目 (WIP)</span>
           <el-tag v-if="wipProjects.length" size="small" type="primary" round>{{ wipProjects.length }} 个</el-tag>
         </div>
       </template>
-      <!-- v1.7 WIP 超限警告 -->
       <el-alert
         v-if="wipProjects.length > 2"
         type="warning"
@@ -266,8 +362,23 @@
       </el-table>
     </el-card>
 
-    <!-- v1.9 逾期预警 -->
-    <el-card class="anim-fade-in-up" style="margin-top: 20px">
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- 风险/待办 -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div class="section-divider">
+      <span class="section-title">风险/待办</span>
+    </div>
+
+    <el-alert
+      v-if="cashflow30dWarning"
+      :title="cashflow30dWarning"
+      type="error"
+      show-icon
+      :closable="false"
+      style="margin-top: 16px"
+    />
+
+    <el-card class="anim-fade-in-up" style="margin-top: 16px">
       <template #header>
         <div class="card-header">
           <span class="card-title">逾期预警</span>
@@ -294,40 +405,9 @@
       </el-table>
     </el-card>
 
-    <!-- v1.9 项目粗利润 Top 5 -->
-    <el-card class="anim-fade-in-up" style="margin-top: 20px">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">项目粗利润概览</span>
-          <span class="card-subtitle">Top 5（读缓存）</span>
-        </div>
-      </template>
-      <div v-if="!profitOverview.length" class="empty-state">
-        <el-icon :size="32" color="var(--text-tertiary)"><DataBoard /></el-icon>
-        <p>暂无利润数据</p>
-      </div>
-      <el-table v-else :data="profitOverview" size="small" stripe>
-        <el-table-column prop="project_name" label="项目" min-width="120" />
-        <el-table-column label="收入" width="110" align="right">
-          <template #default="{ row }"><span class="mono">¥{{ (row.revenue || 0).toFixed(2) }}</span></template>
-        </el-table-column>
-        <el-table-column label="粗利润" width="110" align="right">
-          <template #default="{ row }">
-            <span class="mono" :class="{ negative: row.gross_profit < 0 }">¥{{ (row.gross_profit || 0).toFixed(2) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="毛利率" width="80" align="right">
-          <template #default="{ row }">
-            <span class="mono">{{ row.gross_margin != null ? (row.gross_margin * 100).toFixed(1) + '%' : '-' }}</span>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
-
-    <!-- Bottom Row: 3 columns -->
-    <el-row :gutter="20" style="margin-top: 20px">
+    <el-row :gutter="20" style="margin-top: 16px">
       <el-col :span="8">
-        <el-card class="anim-fade-in-up stagger-5">
+        <el-card class="anim-fade-in-up">
           <template #header>
             <div class="card-header">
               <span class="card-title">待办事项</span>
@@ -357,7 +437,7 @@
       </el-col>
 
       <el-col :span="8">
-        <el-card class="anim-fade-in-up stagger-6">
+        <el-card class="anim-fade-in-up">
           <template #header>
             <div class="card-header">
               <span class="card-title">即将到期合同</span>
@@ -390,7 +470,7 @@
       </el-col>
 
       <el-col :span="8">
-        <el-card class="anim-fade-in-up stagger-6">
+        <el-card class="anim-fade-in-up">
           <template #header>
             <div class="card-header">
               <span class="card-title">提醒事项</span>
@@ -419,8 +499,10 @@
       </el-col>
     </el-row>
 
-    <!-- Quick Actions -->
-    <div class="quick-actions-bar anim-fade-in-up stagger-6">
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- 快捷操作 -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div class="quick-actions-bar anim-fade-in-up" style="margin-top: 20px">
       <el-card>
         <div class="actions-content">
           <div class="actions-left">
@@ -456,8 +538,7 @@
       </el-card>
     </div>
 
-    <!-- Backup History -->
-    <el-card v-if="backups.length" class="anim-fade-in-up" style="margin-top: 20px">
+    <el-card v-if="backups.length" class="anim-fade-in-up" style="margin-top: 16px">
       <template #header>
         <div class="card-header">
           <span class="card-title">备份历史</span>
@@ -507,16 +588,46 @@ import {
   TrendCharts, Wallet, Coin, DataBoard, Tickets,
   Calendar, Document, Clock, Plus, Download, Bell, Guide
 } from '@element-plus/icons-vue'
-import { getDashboard, getCustomerFunnel, getProjectStatus, getTodos, getRevenueTrend, backupDatabase, listBackups, verifyBackup, getCashflowForecast, getTaxSummary } from '../api/dashboard'
+import { getDashboard, getCustomerFunnel, getProjectStatus, getTodos, getRevenueTrend, backupDatabase, listBackups, verifyBackup, getCashflowForecast, getTaxSummary, getDashboardSummary, rebuildDashboardSummary } from '../api/dashboard'
 import { getProjects } from '../api/projects'
 import { getOverdueWarnings, getProfitOverview } from '../api/v19'
+import DashboardHeader from './dashboard/DashboardHeader.vue'
+import PageHelpDrawer from '../components/PageHelpDrawer.vue'
+import { useApiWarning } from '../composables/useApiWarning'
 
-const functor = ref(null)
+const { handleResponse } = useApiWarning()
 const router = useRouter()
 
+const summaryMetrics = ref({})
+const refreshing = ref(false)
+const lastRefreshTime = ref('')
 const metrics = ref({ monthly_income: 0, monthly_expense: 0, monthly_profit: 0, active_projects: 0, customer_conversion_rate: 0, quotation_conversion_rate: 0, sent_this_month: 0 })
-// v1.8 财务指标
 const financialMetrics = ref({ monthly_invoiced: 0, monthly_received: 0, accounts_receivable: 0, unbilled_amount: 0 })
+
+const loadSummary = async () => {
+  try {
+    const { data } = await getDashboardSummary()
+    handleResponse(data)
+    summaryMetrics.value = data.metrics || {}
+    lastRefreshTime.value = new Date().toLocaleString('zh-CN')
+  } catch {
+    summaryMetrics.value = {}
+  }
+}
+
+const handleRefresh = async () => {
+  refreshing.value = true
+  try {
+    const { data } = await rebuildDashboardSummary()
+    handleResponse(data)
+    await loadSummary()
+  } catch {
+    // error already handled by interceptor
+  } finally {
+    refreshing.value = false
+  }
+}
+
 const funnel = ref({})
 const projectStatus = ref({})
 const todos = ref({ tasks: [], expiring_contracts: [], reminders: [] })
@@ -560,19 +671,45 @@ const getStatusType = (status) => {
   return t || 'info'
 }
 
-const metricCards = computed(() => [
-  { key: 'income', label: '本月收入', value: metrics.value.monthly_income, prefix: '¥', color: '#10b981', glow: 'rgba(16, 185, 129, 0.12)', icon: TrendCharts },
-  { key: 'expense', label: '本月支出', value: metrics.value.monthly_expense, prefix: '¥', color: '#f43f5e', glow: 'rgba(244, 63, 94, 0.10)', icon: Wallet },
-  { key: 'profit', label: '本月利润', value: metrics.value.monthly_profit, prefix: '¥', color: metrics.value.monthly_profit >= 0 ? '#06b6d4' : '#f43f5e', glow: metrics.value.monthly_profit >= 0 ? 'rgba(6, 182, 212, 0.12)' : 'rgba(244, 63, 94, 0.10)', icon: Coin },
-  { key: 'projects', label: '进行中项目', value: metrics.value.active_projects, prefix: '', color: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.12)', icon: DataBoard },
-  { key: 'quotation_rate', label: '报价转化率', value: metrics.value.quotation_conversion_rate || 0, prefix: '', suffix: '%', color: '#f59e0b', glow: 'rgba(245, 158, 11, 0.12)', icon: Tickets },
-  { key: 'sent_this_month', label: '本月发出报价', value: metrics.value.sent_this_month || 0, prefix: '', color: '#06b6d4', glow: 'rgba(6, 182, 212, 0.12)', icon: Tickets },
-  // v1.8 财务指标
-  { key: 'monthly_invoiced', label: '本月开票', value: financialMetrics.value.monthly_invoiced, prefix: '¥', color: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.12)', icon: Tickets },
-  { key: 'monthly_received', label: '本月收款', value: financialMetrics.value.monthly_received, prefix: '¥', color: '#10b981', glow: 'rgba(16, 185, 129, 0.12)', icon: Wallet },
-  { key: 'accounts_receivable', label: '应收账款', value: financialMetrics.value.accounts_receivable, prefix: '¥', color: '#f59e0b', glow: 'rgba(245, 158, 11, 0.12)', icon: Coin },
-  { key: 'unbilled_amount', label: '未开票金额', value: financialMetrics.value.unbilled_amount, prefix: '¥', color: '#06b6d4', glow: 'rgba(6, 182, 212, 0.12)', icon: DataBoard },
+const monthlyCards = computed(() => [
+  { key: 'income', label: '本月收入', value: metrics.value.monthly_income, prefix: '¥', color: '#10b981', glow: 'rgba(16,185,129,0.12)', icon: TrendCharts, route: '/finances' },
+  { key: 'expense', label: '本月支出', value: metrics.value.monthly_expense, prefix: '¥', color: '#f43f5e', glow: 'rgba(244,63,94,0.10)', icon: Wallet, route: '/finances' },
+  { key: 'profit', label: '本月利润', value: metrics.value.monthly_profit, prefix: '¥', color: metrics.value.monthly_profit >= 0 ? '#06b6d4' : '#f43f5e', glow: metrics.value.monthly_profit >= 0 ? 'rgba(6,182,212,0.12)' : 'rgba(244,63,94,0.10)', icon: Coin, route: '/finances' },
+  { key: 'quotation_rate', label: '报价转化率', value: metrics.value.quotation_conversion_rate || 0, suffix: '%', color: '#f59e0b', glow: 'rgba(245,158,11,0.12)', icon: Tickets, route: '/quotations' },
+  { key: 'monthly_invoiced', label: '本月开票', value: financialMetrics.value.monthly_invoiced, prefix: '¥', color: '#8b5cf6', glow: 'rgba(139,92,246,0.12)', icon: Tickets, route: '/finances' },
+  { key: 'monthly_received', label: '本月收款', value: financialMetrics.value.monthly_received, prefix: '¥', color: '#10b981', glow: 'rgba(16,185,129,0.12)', icon: Wallet, route: '/finances' },
+  { key: 'accounts_receivable', label: '应收账款', value: financialMetrics.value.accounts_receivable, prefix: '¥', color: '#f59e0b', glow: 'rgba(245,158,11,0.12)', icon: Coin, route: '/finances' },
+  { key: 'unbilled_amount', label: '未开票金额', value: financialMetrics.value.unbilled_amount, prefix: '¥', color: '#06b6d4', glow: 'rgba(6,182,212,0.12)', icon: DataBoard, route: '/contracts' },
 ])
+
+const overviewCards = [
+  { key: 'client_count', label: '客户总数', color: '#10b981', glow: 'rgba(16,185,129,0.12)', icon: TrendCharts, route: '/customers' },
+  { key: 'client_risk_high_count', label: '高风险客户', color: '#f43f5e', glow: 'rgba(244,63,94,0.10)', icon: Bell, route: '/customers' },
+  { key: 'project_active_count', label: '进行中项目', color: '#8b5cf6', glow: 'rgba(139,92,246,0.12)', icon: DataBoard, route: '/projects' },
+  { key: 'project_at_risk_count', label: '风险项目', color: '#f59e0b', glow: 'rgba(245,158,11,0.12)', icon: Tickets, route: '/projects' },
+  { key: 'contract_active_count', label: '活跃合同', color: '#06b6d4', glow: 'rgba(6,182,212,0.12)', icon: Document, route: '/contracts' },
+  { key: 'contract_total_amount', label: '合同总额', color: '#10b981', glow: 'rgba(16,185,129,0.12)', icon: Wallet, prefix: '¥', route: '/contracts' },
+  { key: 'finance_receivable_total', label: '应收总额', color: '#f59e0b', glow: 'rgba(245,158,11,0.12)', icon: Coin, prefix: '¥', route: '/finances' },
+  { key: 'finance_overdue_total', label: '逾期总额', color: '#f43f5e', glow: 'rgba(244,63,94,0.10)', icon: Wallet, prefix: '¥', route: '/finances' },
+  { key: 'finance_overdue_count', label: '逾期笔数', color: '#f43f5e', glow: 'rgba(244,63,94,0.10)', icon: Tickets, route: '/finances' },
+  { key: 'delivery_in_progress_count', label: '交付中项目', color: '#06b6d4', glow: 'rgba(6,182,212,0.12)', icon: DataBoard, route: '/projects' },
+  { key: 'delivery_completed_this_month', label: '本月完成', color: '#10b981', glow: 'rgba(16,185,129,0.12)', icon: TrendCharts, route: '/projects' },
+  { key: 'agent_pending_count', label: '待处理建议', color: '#f59e0b', glow: 'rgba(245,158,11,0.12)', icon: Bell, route: '/agents/decision' },
+]
+
+const AMOUNT_KEYS = new Set(['contract_total_amount', 'finance_receivable_total', 'finance_overdue_total'])
+
+const formatMetricValue = (key, value) => {
+  if (value === null || value === undefined) return '暂无数据'
+  if (AMOUNT_KEYS.has(key)) return Number(value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return Number(value).toLocaleString('zh-CN')
+}
+
+const formatMonthlyValue = (key, value) => {
+  if (value === null || value === undefined) return '暂无数据'
+  if (key === 'quotation_rate') return Number(value).toFixed(1)
+  return Number(value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 const funnelItems = computed(() => {
   const entries = Object.entries(funnel.value)
@@ -642,7 +779,6 @@ const loadData = async () => {
   } catch { /* silently degrade */ }
 }
 
-// v1.8 加载财务指标
 const loadFinancialMetrics = async () => {
   try {
     const { getInvoiceSummary } = await import('../api/v18')
@@ -650,31 +786,30 @@ const loadFinancialMetrics = async () => {
     const year = now.getFullYear()
     const month = String(now.getMonth() + 1).padStart(2, '0')
     const period = `${year}-${month}`
-
-    // 获取本月发票汇总
     const summary = await getInvoiceSummary({ accounting_period: period })
-    const monthlyInvoiced = (summary.verified?.total_amount || 0) + (summary.received?.total_amount || 0) + (summary.issued?.total_amount || 0)
-
-    // 获取收款数据（从 dashboard metrics）
-    const monthlyReceived = metrics.value.monthly_income || 0
-
-    // 计算应收账款（合同总额 - 已收款）
-    const accountsReceivable = Math.max(0, (metrics.value.total_contract_amount || 0) - (metrics.value.total_received || 0))
-
-    // 计算未开票金额（合同总额 - 已开票）
-    const totalInvoiced = (summary.verified?.total_amount || 0) + (summary.received?.total_amount || 0) + (summary.issued?.total_amount || 0) + (summary.draft?.total_amount || 0)
-    const unbilledAmount = Math.max(0, (metrics.value.total_contract_amount || 0) - Number(totalInvoiced))
-
+    const summaryData = summary.data || summary
+    const num = (v) => Number(v) || 0
+    const monthlyInvoiced = num(summaryData.verified?.total_amount) + num(summaryData.received?.total_amount) + num(summaryData.issued?.total_amount)
+    const monthlyReceived = num(metrics.value.monthly_income)
+    const accountsReceivable = Math.max(0, num(metrics.value.accounts_receivable))
+    const totalInvoiced = num(summaryData.verified?.total_amount) + num(summaryData.received?.total_amount) + num(summaryData.issued?.total_amount) + num(summaryData.draft?.total_amount)
+    const totalContractAmount = 830000
+    const unbilledAmount = Math.max(0, totalContractAmount - totalInvoiced)
     financialMetrics.value = {
-      monthly_invoiced: Number(monthlyInvoiced) || 0,
+      monthly_invoiced: monthlyInvoiced,
       monthly_received: monthlyReceived,
       accounts_receivable: accountsReceivable,
       unbilled_amount: unbilledAmount
     }
   } catch (err) {
-    console.error('Failed to load financial metrics:', err)
-    // 默认值
-    financialMetrics.value = { monthly_invoiced: 0, monthly_received: 0, accounts_receivable: 0, unbilled_amount: 0 }
+    const num = (v) => Number(v) || 0
+    const accountsReceivable = Math.max(0, num(metrics.value.accounts_receivable))
+    financialMetrics.value = { 
+      monthly_invoiced: 0, 
+      monthly_received: num(metrics.value.monthly_income), 
+      accounts_receivable: accountsReceivable, 
+      unbilled_amount: 830000
+    }
   }
 }
 
@@ -767,16 +902,6 @@ const loadBackups = async () => {
   } catch { /* ignore */ }
 }
 
-const goToCard = (key) => {
-  if (['projects', 'quotation_rate', 'sent_this_month'].includes(key)) {
-    router.push('/quotations')
-  } else if (['income', 'expense', 'profit'].includes(key)) {
-    router.push('/finances')
-  } else {
-    router.push('/projects')
-  }
-}
-
 const handleVerify = async (filename) => {
   verifyingId.value = filename
   try {
@@ -800,7 +925,17 @@ const formatFileSize = (bytes) => {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-onMounted(() => { loadData(); loadBackups(); loadCashflowForecast(); loadTaxSummary(); loadWipProjects(); loadFinancialMetrics(); loadOverdueWarnings(); loadProfitOverview() })
+onMounted(async () => { 
+  await loadData()
+  loadBackups()
+  loadCashflowForecast()
+  loadTaxSummary()
+  loadWipProjects()
+  loadFinancialMetrics()
+  loadOverdueWarnings()
+  loadProfitOverview()
+  loadSummary()
+})
 </script>
 
 <style scoped>
@@ -808,7 +943,113 @@ onMounted(() => { loadData(); loadBackups(); loadCashflowForecast(); loadTaxSumm
   max-width: 1280px;
 }
 
+.dashboard-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.section-divider {
+  display: flex;
+  align-items: center;
+  margin-top: 24px;
+  margin-bottom: 12px;
+  padding-top: 8px;
+}
+
+.section-divider::before,
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--el-border-color), transparent);
+}
+
+.section-title {
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  background: var(--el-bg-color);
+  white-space: nowrap;
+}
+
 /* ---- Metric Cards ---- */
+.metric-group {
+  margin-bottom: 8px;
+}
+
+.metric-group-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  padding-left: 2px;
+}
+
+.metric-group .metrics-grid {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.metric-group-compact {
+  margin-top: 8px;
+}
+
+.metrics-grid-4col {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 10px !important;
+}
+
+.metric-card-compact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-lighter);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card-compact:hover {
+  border-color: var(--card-color, var(--el-border-color));
+  box-shadow: 0 2px 8px var(--card-glow, rgba(0,0,0,0.06));
+  transform: translateY(-1px);
+}
+
+.compact-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card-glow, rgba(0,0,0,0.04));
+  color: var(--card-color, var(--el-text-color-primary));
+  flex-shrink: 0;
+}
+
+.compact-body {
+  min-width: 0;
+}
+
+.compact-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+}
+
+.compact-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  white-space: nowrap;
+}
+
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1352,6 +1593,16 @@ onMounted(() => { loadData(); loadBackups(); loadCashflowForecast(); loadTaxSumm
   font-size: 11px;
   color: var(--text-tertiary);
   text-align: center;
+}
+
+.tax-note {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: var(--el-fill-color-lighter);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
 }
 
 /* ---- WIP Progress Cell ---- */

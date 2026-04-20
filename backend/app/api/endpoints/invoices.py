@@ -93,6 +93,7 @@ async def list_invoices(
 
 @router.get("/summary", response_model=InvoiceSummaryResponse)
 async def get_invoice_summary(
+    accounting_period: Optional[str] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     db: AsyncSession = Depends(get_db),
@@ -102,8 +103,17 @@ async def get_invoice_summary(
     获取发票汇总统计。
 
     - 按状态分组：count 和 total_amount
-    - 支持日期范围筛选
+    - 支持日期范围筛选或会计期间（YYYY-MM格式）
     """
+    if accounting_period and not start_date:
+        try:
+            year, month = map(int, accounting_period.split("-"))
+            from calendar import monthrange
+            start_date = date(year, month, 1)
+            end_date = date(year, month, monthrange(year, month)[1])
+        except (ValueError, TypeError):
+            pass
+
     summary = await invoice_crud.get_summary(db, start_date, end_date)
 
     return InvoiceSummaryResponse(

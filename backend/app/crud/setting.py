@@ -39,6 +39,14 @@ COMPANY_KEYS = [
     "company_bank_account",
 ]
 
+TAX_CONFIG_KEYS = [
+    "tax_payer_type",
+    "tax_small_scale_rate",
+    "tax_small_scale_exempt_threshold",
+    "tax_general_standard_rate",
+    "tax_general_include_ordinary_input",
+]
+
 
 async def get_company_settings(db: AsyncSession) -> dict[str, str]:
     """读取所有公司设置项，返回 dict。"""

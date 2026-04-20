@@ -8,9 +8,9 @@ class CustomerBase(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     company: Optional[str] = None
-    source: str = "other"
-    status: str = "potential"
-    notes: str = ""
+    source: Optional[str] = "other"
+    status: Optional[str] = "potential"
+    notes: Optional[str] = ""
     lost_reason: Optional[str] = None
 
 

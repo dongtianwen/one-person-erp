@@ -53,6 +53,15 @@
           <el-icon><Tickets /></el-icon>
           <template #title>报价单</template>
         </el-menu-item>
+        <el-sub-menu index="v23-new">
+          <template #title>
+            <el-icon><Grid /></el-icon>
+            <span>经营工具</span>
+          </template>
+          <el-menu-item index="/minutes">会议纪要</el-menu-item>
+          <el-menu-item index="/tools/entries">工具台账</el-menu-item>
+          <el-menu-item index="/leads">线索管理</el-menu-item>
+        </el-sub-menu>
         <el-menu-item index="/settings/templates">
           <el-icon><DocumentCopy /></el-icon>
           <template #title>模板管理</template>
@@ -130,7 +139,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 import {
   DataAnalysis, User, Folder, Document, Money, Bell, FolderOpened, Tickets, Download, Guide,
-  ArrowDown, SwitchButton, Expand, Fold, DocumentCopy, OfficeBuilding, Cpu
+  ArrowDown, SwitchButton, Expand, Fold, DocumentCopy, OfficeBuilding, Cpu, Grid
 } from '@element-plus/icons-vue'
 import ErrorHelp from './ErrorHelp.vue'
 import { setErrorHelpRef } from '../api/index'
@@ -157,6 +166,9 @@ const pageTitles = {
   '/agents/decision': '经营决策 Agent',
   '/agents/logs': 'Agent 运行日志',
   '/agents/settings': 'Agent 设置',
+  '/minutes': '会议纪要',
+  '/tools/entries': '工具台账',
+  '/leads': '线索管理',
 }
 
 const currentPageTitle = computed(() => pageTitles[route.path] || '天枢')
