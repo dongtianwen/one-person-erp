@@ -118,6 +118,14 @@ const routes = [
         path: 'leads',
         name: 'Leads',
         component: () => import('../views/leads/LeadsView.vue')
+      },
+      {
+        path: ':pathMatch(.*)*',
+        name: 'NotFound',
+        component: () => import('../views/Dashboard.vue'),
+        beforeEnter: (to, from, next) => {
+          next('/dashboard')
+        }
       }
     ]
   }
@@ -131,7 +139,7 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('access_token')
   if (to.meta.requiresAuth !== false && !token) {
-    next('/login')
+    next({ path: '/login', query: { redirect: to.fullPath } })
   } else {
     next()
   }

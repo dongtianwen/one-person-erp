@@ -5,6 +5,8 @@ export const getRevenueTrend = (months = 12) => api.get('/dashboard/revenue-tren
 export const getCustomerFunnel = () => api.get('/dashboard/customer-funnel')
 export const getProjectStatus = () => api.get('/dashboard/project-status')
 export const getTodos = () => api.get('/dashboard/todos')
+export const completeTodo = (itemId) => api.put(`/dashboard/todos/${itemId}/complete`)
+export const dismissReminder = (reminderId) => api.put(`/dashboard/reminders/${reminderId}/dismiss`)
 export const backupDatabase = (backupDir) => api.post('/dashboard/backup', null, { params: { backup_dir: backupDir } })
 export const listBackups = () => api.get('/dashboard/backups')
 export const verifyBackup = (filename) => api.post(`/dashboard/backups/${filename}/verify`)

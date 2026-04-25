@@ -92,13 +92,14 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import { login } from '../api/auth'
 import { useAuthStore } from '../store/auth'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const loading = ref(false)
 const form = reactive({ username: '', password: '', remember: false })
@@ -113,7 +114,7 @@ const handleLogin = async () => {
     const { data } = await login(form.username, form.password)
     authStore.login(data)
     ElMessage.success('登录成功')
-    router.push('/')
+    router.push(route.query.redirect || '/')
   } catch (e) {
     // Error handled by interceptor
   } finally {

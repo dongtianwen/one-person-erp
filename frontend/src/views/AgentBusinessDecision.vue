@@ -193,10 +193,10 @@ const fetchRuns = async () => {
 const fetchSuggestions = async () => {
   try {
     const { data } = await getPendingSuggestions({ agent_type: 'business_decision' })
-    // 按 suggestion_type 去重，只保留最新的一条
+    const sorted = [...(data || [])].sort((a, b) => b.id - a.id)
     const seen = {}
     const deduped = []
-    for (const item of (data || [])) {
+    for (const item of sorted) {
       if (!seen[item.suggestion_type]) {
         seen[item.suggestion_type] = true
         deduped.push(item)
@@ -222,14 +222,22 @@ const handleConfirm = (row, decision) => {
 const submitConfirm = async () => {
   try {
     await confirmSuggestion(confirmForm.value.id, {
-      decision: confirmForm.value.decision,
-      reason: confirmForm.value.reason
+      decision_type: confirmForm.value.decision,
+      free_text_reason: confirmForm.value.reason
     })
     ElMessage.success('已登记决策')
     confirmVisible.value = false
     await fetchSuggestions()
   } catch (e) {
-    ElMessage.error('确认失败')
+    const msg = e?.response?.data?.detail || e?.message || '确认失败'
+    const code = e?.response?.data?.code || ''
+    if (code === 'SUGGESTION_NOT_PENDING') {
+      ElMessage.warning('该建议已被处理，将刷新列表')
+      confirmVisible.value = false
+      await fetchSuggestions()
+    } else {
+      ElMessage.error(msg)
+    }
   }
 }
 

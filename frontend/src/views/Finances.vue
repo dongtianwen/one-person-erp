@@ -968,8 +968,7 @@ const loadExportBatches = async () => {
   try {
     const { data } = await getExportBatches({ skip: 0, limit: 20 })
     exportBatches.value = data.items || data
-  } catch (err) {
-    console.error('Failed to load export batches:', err)
+  } catch {
   }
 }
 
@@ -988,8 +987,8 @@ const handleCreateExport = async () => {
     })
     ElMessage.success('导出批次已创建')
     loadExportBatches()
-  } catch (err) {
-    console.error('Failed to create export:', err)
+  } catch {
+    ElMessage.error('创建导出批次失败')
   } finally {
     exportLoading.value = false
   }
@@ -1005,8 +1004,7 @@ const handleDownload = async (row) => {
     a.click()
     window.URL.revokeObjectURL(url)
     ElMessage.success('下载已开始')
-  } catch (err) {
-    console.error('Failed to download:', err)
+  } catch {
     ElMessage.error('下载失败')
   }
 }
@@ -1015,17 +1013,12 @@ const handleDownload = async (row) => {
 const loadReconciliationPeriods = async () => {
   try {
     const { data } = await getReconciliationPeriods()
-    console.log('Available Periods:', data.periods)
     availablePeriods.value = data.periods || []
     if (availablePeriods.value.length) {
       selectedPeriod.value = availablePeriods.value[availablePeriods.value.length - 1]
-      console.log('Selected Period:', selectedPeriod.value)
       loadReconciliationReport()
-    } else {
-      console.warn('No periods available')
     }
-  } catch (err) {
-    console.error('Failed to load periods:', err)
+  } catch {
   }
 }
 
@@ -1034,11 +1027,8 @@ const loadReconciliationReport = async () => {
   reconciliationLoading.value = true
   try {
     const { data } = await apiGetReconciliationReport(selectedPeriod.value)
-    console.log('Reconciliation Report Data:', data)
-    console.log('Breakdown:', data?.breakdown)
     reconciliationReport.value = data
-  } catch (err) {
-    console.error('Failed to load report:', err)
+  } catch {
   } finally {
     reconciliationLoading.value = false
   }
@@ -1050,8 +1040,7 @@ const handleSyncReconciliation = async () => {
     const { data } = await syncReconciliationStatus([])
     ElMessage.success(`已同步 ${data.updated_count || 0} 条记录`)
     loadReconciliationReport()
-  } catch (err) {
-    console.error('Failed to sync:', err)
+  } catch {
   } finally {
     syncLoading.value = false
   }

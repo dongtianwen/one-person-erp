@@ -444,11 +444,16 @@ async def evaluate_overdue_payments(db: AsyncSession) -> List[Dict[str, Any]]:
 
     strategy = _match_strategy(score_result["total_score"], SUGGESTION_TYPE_OVERDUE_PAYMENT)
 
+    customer_names = sorted(set(d["customer_name"] for d in details if d["customer_name"]))
+    customer_label = customer_names[0] if len(customer_names) == 1 else f"{len(customer_names)}家客户"
+    amount_label = f"¥{total_amount:,.0f}"
+
     return [_build_suggestion(
         decision_type="overdue_payment",
         suggestion_type=SUGGESTION_TYPE_OVERDUE_PAYMENT,
-        title=f"发现 {count} 笔逾期回款，风险评分 {score_result['total_score']} 分",
-        description=f"共 {count} 笔回款逾期，合计 ¥{total_amount:,.2f}。"
+        title=f"跟进{customer_label} {amount_label} 逾期回款（最长{max_days_overdue}天）",
+        description=f"共 {count} 笔回款逾期，合计 {amount_label}。"
+                    f"涉及客户：{'、'.join(customer_names)}；"
                     f"最大逾期 {max_days_overdue} 天，风险等级 {customer_risk}。",
         suggested_action="create_todo",
         source_rule="overdue_payment_check",
@@ -669,7 +674,7 @@ async def evaluate_task_delay(db: AsyncSession, project_id: Optional[int] = None
     return items
 
 
-async def evaluate_change_impact(db: AsyncSession) -> List[Dict[str, Any]]:
+async def evaluate_change_impact(db: AsyncSession, project_id: Optional[int] = None) -> List[Dict[str, Any]]:
     """评估变更影响。
 
     检测近期未确认的变更单。
@@ -679,15 +684,16 @@ async def evaluate_change_impact(db: AsyncSession) -> List[Dict[str, Any]]:
     from sqlalchemy.orm import selectinload
     from datetime import timedelta
     cutoff = (date.today() - timedelta(days=30)).isoformat()
-    result = await db.execute(
-        select(ChangeOrder).options(
-            selectinload(ChangeOrder.contract).selectinload(Contract.project)
-        ).where(
-            ChangeOrder.status == "pending",
-            ChangeOrder.created_at >= cutoff,
-            ChangeOrder.is_deleted == False,
-        )
+    query = select(ChangeOrder).options(
+        selectinload(ChangeOrder.contract).selectinload(Contract.project)
+    ).where(
+        ChangeOrder.status == "pending",
+        ChangeOrder.created_at >= cutoff,
+        ChangeOrder.is_deleted == False,
     )
+    if project_id:
+        query = query.join(ChangeOrder.contract).where(Contract.project_id == project_id)
+    result = await db.execute(query)
     changes = result.scalars().all()
     if not changes:
         return []
@@ -747,7 +753,7 @@ async def run_project_management_rules(db: AsyncSession, project_id: Optional[in
     for evaluator in [
         lambda db: evaluate_milestone_risk(db, project_id),
         lambda db: evaluate_task_delay(db, project_id),
-        evaluate_change_impact,
+        lambda db: evaluate_change_impact(db, project_id),
     ]:
         try:
             results = await evaluator(db)

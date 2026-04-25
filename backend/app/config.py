@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     LLM_API_MODEL: str = ""
 
     model_config = ConfigDict(
-        env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
+        env_file=os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"),
         env_file_encoding="utf-8",
         extra="allow",
     )

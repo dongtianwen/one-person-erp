@@ -44,7 +44,6 @@ from app.api.endpoints import (
     training_experiments,
     model_versions,
     delivery_packages,
-    templates,
     agents,
     agent_confirmations,
     qa,
@@ -80,6 +79,10 @@ async def lifespan(app: FastAPI):
         logging.warning("Logging setup failed: %s", e)
 
     logger.info("系统启动事件 | action=start")
+
+    if settings.SECRET_KEY == "dev-secret-key-change-in-production":
+        logger.critical("SECRET_KEY 仍为默认值，拒绝启动！请在 .env 中设置 SECRET_KEY")
+        raise SystemExit(1)
 
     # Run alembic migrations on startup
     try:
@@ -188,9 +191,6 @@ app.include_router(training_experiments.router, prefix="/api/v1/training-experim
 app.include_router(model_versions.router, prefix="/api/v1/model-versions", tags=["模型版本"])
 # v1.11 交付包
 app.include_router(delivery_packages.router, prefix="/api/v1/delivery-packages", tags=["交付包"])
-
-# v1.12 模板管理
-app.include_router(templates.router, prefix="/api/v1/templates", tags=["模板管理"])
 
 # v2.0 AI Agent 闭环
 app.include_router(agents.router, prefix="/api/v1/agents", tags=["AI Agent"])

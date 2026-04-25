@@ -430,7 +430,17 @@
                   class="todo-tag"
                 >{{ priorityLabel(task.priority) }}</el-tag>
               </div>
-              <span class="todo-due">{{ task.due_date || '无截止日期' }}</span>
+              <div class="todo-right">
+                <span class="todo-due">{{ task.due_date || '无截止日期' }}</span>
+                <el-button
+                  link size="small"
+                  type="success"
+                  @click.stop="handleCompleteTodo(task)"
+                  title="标记完成"
+                >
+                  <el-icon><CircleCloseFilled /></el-icon>
+                </el-button>
+              </div>
             </div>
           </div>
         </el-card>
@@ -489,9 +499,19 @@
                 <el-tag v-if="r.is_critical" size="small" type="danger" class="reminder-tag">关键</el-tag>
                 <el-tag size="small" :type="reminderTypeTag(r.reminder_type)" class="reminder-tag">{{ reminderTypeLabel(r.reminder_type) }}</el-tag>
               </div>
-              <div class="reminder-meta">
-                <el-tag v-if="r.status === 'overdue'" size="small" type="danger" round>已逾期</el-tag>
-                <span class="reminder-date">{{ r.reminder_date }}</span>
+              <div class="reminder-right">
+                <div class="reminder-meta">
+                  <el-tag v-if="r.status === 'overdue'" size="small" type="danger" round>已逾期</el-tag>
+                  <span class="reminder-date">{{ r.reminder_date }}</span>
+                </div>
+                <el-button
+                  link size="small"
+                  type="primary"
+                  @click.stop="handleDismissReminder(r)"
+                  title="标记已处理"
+                >
+                  <el-icon><CircleCloseFilled /></el-icon>
+                </el-button>
               </div>
             </div>
           </div>
@@ -586,9 +606,10 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   TrendCharts, Wallet, Coin, DataBoard, Tickets,
-  Calendar, Document, Clock, Plus, Download, Bell, Guide
+  Calendar, Document, Clock, Plus, Download, Bell, Guide,
+  CircleCloseFilled
 } from '@element-plus/icons-vue'
-import { getDashboard, getCustomerFunnel, getProjectStatus, getTodos, getRevenueTrend, backupDatabase, listBackups, verifyBackup, getCashflowForecast, getTaxSummary, getDashboardSummary, rebuildDashboardSummary } from '../api/dashboard'
+import { getDashboard, getCustomerFunnel, getProjectStatus, getTodos, completeTodo, dismissReminder, getRevenueTrend, backupDatabase, listBackups, verifyBackup, getCashflowForecast, getTaxSummary, getDashboardSummary, rebuildDashboardSummary } from '../api/dashboard'
 import { getProjects } from '../api/projects'
 import { getOverdueWarnings, getProfitOverview } from '../api/v19'
 import DashboardHeader from './dashboard/DashboardHeader.vue'
@@ -776,6 +797,20 @@ const loadData = async () => {
     projectStatus.value = statusRes.data
     todos.value = todosRes.data
     revenueTrend.value = trendRes.data || []
+  } catch { /* silently degrade */ }
+}
+
+const handleCompleteTodo = async (task) => {
+  try {
+    await completeTodo(task.id)
+    todos.value.tasks = todos.value.tasks.filter(t => t.id !== task.id)
+  } catch { /* silently degrade */ }
+}
+
+const handleDismissReminder = async (reminder) => {
+  try {
+    await dismissReminder(reminder.id)
+    todos.value.reminders = todos.value.reminders.filter(r => r.id !== reminder.id)
   } catch { /* silently degrade */ }
 }
 
@@ -1341,6 +1376,12 @@ onMounted(async () => {
   color: var(--text-tertiary);
 }
 
+.todo-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* ---- Contract ---- */
 .contract-row {
   display: flex;
@@ -1443,6 +1484,12 @@ onMounted(async () => {
 }
 
 .reminder-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reminder-right {
   display: flex;
   align-items: center;
   gap: 8px;

@@ -1,6 +1,8 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
+const MAX_RETRY = 1
+
 const api = axios.create({
   baseURL: '/api/v1',
   timeout: 10000,
@@ -10,6 +12,9 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
+  }
+  if (config._retry === undefined) {
+    config._retry = 0
   }
   return config
 })
@@ -78,8 +83,12 @@ api.interceptors.response.use(
     // 网络错误或手动取消
     if (!error.response) {
       if (axios.isCancel(error)) {
-        // 请求被用户主动取消（如点击了“终止分析”），不弹全局错误
+        // 请求被用户主动取消（如点击了"终止分析"），不弹全局错误
         return Promise.reject(error)
+      }
+      if (error.config && error.config._retry < MAX_RETRY) {
+        error.config._retry += 1
+        return api(error.config)
       }
       ElMessage.error('网络连接失败，请检查网络')
       return Promise.reject(error)

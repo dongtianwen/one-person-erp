@@ -49,7 +49,7 @@ async def create_invoice(
         raise
     except Exception as e:
         logger.error(f"创建发票失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="创建发票失败，请稍后重试")
 
 
 @router.get("", response_model=InvoiceListResponse)
@@ -164,7 +164,7 @@ async def update_invoice(
         raise
     except Exception as e:
         logger.error(f"更新发票失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="更新发票失败，请稍后重试")
 
 
 @router.patch("/{invoice_id}", response_model=InvoiceResponse)
@@ -193,7 +193,7 @@ async def partial_update_invoice(
         raise
     except Exception as e:
         logger.error(f"部分更新发票失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="更新发票失败，请稍后重试")
 
 
 @router.delete("/{invoice_id}", status_code=204)
@@ -219,7 +219,7 @@ async def delete_invoice(
         raise
     except Exception as e:
         logger.error(f"删除发票失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="删除发票失败，请稍后重试")
 
 
 @router.post("/{invoice_id}/issue", response_model=InvoiceResponse)
@@ -246,7 +246,7 @@ async def issue_invoice(
         raise
     except Exception as e:
         logger.error(f"开具发票失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="开具发票失败，请稍后重试")
 
 
 @router.post("/{invoice_id}/receive", response_model=InvoiceResponse)
@@ -276,7 +276,7 @@ async def receive_invoice(
         raise
     except Exception as e:
         logger.error(f"收票失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="收票操作失败，请稍后重试")
 
 
 @router.post("/{invoice_id}/verify", response_model=InvoiceResponse)
@@ -303,7 +303,7 @@ async def verify_invoice(
         raise
     except Exception as e:
         logger.error(f"核销发票失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="核销发票失败，请稍后重试")
 
 
 @router.post("/{invoice_id}/cancel", response_model=InvoiceResponse)
@@ -330,4 +330,4 @@ async def cancel_invoice(
         raise
     except Exception as e:
         logger.error(f"作废发票失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="作废发票失败，请稍后重试")

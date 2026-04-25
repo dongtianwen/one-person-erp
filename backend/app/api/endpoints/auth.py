@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
@@ -50,7 +50,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
 
     if user.locked_until:
         locked_until = datetime.fromisoformat(user.locked_until)
-        if datetime.utcnow() < locked_until:
+        if datetime.now(timezone.utc) < locked_until:
             raise AccountLockedException()
         else:
             user.login_attempts = 0
@@ -60,7 +60,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
     if not verify_password(form_data.password, user.hashed_password):
         user.login_attempts = (user.login_attempts or 0) + 1
         if user.login_attempts >= 5:
-            user.locked_until = (datetime.utcnow() + timedelta(minutes=30)).isoformat()
+            user.locked_until = (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat()
             await db.commit()
             raise AccountLockedException()
         await db.commit()

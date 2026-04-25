@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from typing import Optional
+import logging
 
 from app.database import get_db
 from app.api.deps import get_current_user
@@ -16,6 +17,7 @@ from app.crud.template import get_default_template
 from app.core.error_codes import ERROR_CODES
 from app.crud.project import project as project_crud
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -40,9 +42,7 @@ async def list_contracts(
             page_size=limit,
         )
     except Exception as e:
-        print(f"Error validating contracts: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error("合同列表验证失败: %s", e, exc_info=True)
         raise
 
 

@@ -130,10 +130,18 @@ async def _compute_metric(db: AsyncSession, metric_key: str) -> Any:
             return result.scalar() or 0
 
         if metric_key == METRIC_PROJECT_AT_RISK_COUNT:
+            from datetime import datetime, timezone
+            now_utc = datetime.now(timezone.utc)
             result = await db.execute(
                 select(func.count(Project.id)).where(
                     Project.status.notin_(["completed", "paused", "delivery"]),
                     Project.is_deleted == False,
+                    Project.id.in_(
+                        select(Milestone.project_id).where(
+                            Milestone.payment_status == "pending",
+                            Milestone.payment_due_date < now_utc,
+                        )
+                    ),
                 )
             )
             return result.scalar() or 0
@@ -175,21 +183,23 @@ async def _compute_metric(db: AsyncSession, metric_key: str) -> Any:
             return max(0.0, round(ct - pt, 2))
 
         if metric_key == METRIC_FINANCE_OVERDUE_TOTAL:
-            from datetime import datetime
+            from datetime import datetime, timezone
+            now_utc = datetime.now(timezone.utc)
             result = await db.execute(
                 select(func.coalesce(func.sum(Milestone.payment_amount), 0)).where(
                     Milestone.payment_status == "pending",
-                    Milestone.payment_due_date < datetime.utcnow(),
+                    Milestone.payment_due_date < now_utc,
                 )
             )
             return float(result.scalar() or 0)
 
         if metric_key == METRIC_FINANCE_OVERDUE_COUNT:
-            from datetime import datetime
+            from datetime import datetime, timezone
+            now_utc = datetime.now(timezone.utc)
             result = await db.execute(
                 select(func.count(Milestone.id)).where(
                     Milestone.payment_status == "pending",
-                    Milestone.payment_due_date < datetime.utcnow(),
+                    Milestone.payment_due_date < now_utc,
                 )
             )
             return result.scalar() or 0
@@ -201,12 +211,12 @@ async def _compute_metric(db: AsyncSession, metric_key: str) -> Any:
             return result.scalar() or 0
 
         if metric_key == METRIC_DELIVERY_COMPLETED_THIS_MONTH:
-            from datetime import datetime
-            now = datetime.utcnow()
+            from datetime import datetime, timezone
+            now_utc = datetime.now(timezone.utc)
             result = await db.execute(
                 select(func.count(Project.id)).where(
                     Project.status == "completed",
-                    func.strftime("%Y-%m", Project.updated_at) == now.strftime("%Y-%m"),
+                    func.strftime("%Y-%m", Project.updated_at) == now_utc.strftime("%Y-%m"),
                 )
             )
             return result.scalar() or 0

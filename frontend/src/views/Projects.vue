@@ -113,7 +113,7 @@
           <el-input v-model="form.name" placeholder="请输入项目名称" />
         </el-form-item>
         <el-form-item label="关联客户" required>
-          <el-select v-model="form.customer_id" placeholder="选择客户" filterable style="width: 100%">
+          <el-select ref="customerSelectRef" v-model="form.customer_id" placeholder="选择客户" filterable style="width: 100%" @focus="onCustomerSelectFocus">
             <el-option v-for="c in customers" :key="c.id" :label="`${c.name} (${c.company || '无公司'})`" :value="c.id" />
           </el-select>
         </el-form-item>
@@ -569,7 +569,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, MoreFilled, CircleCheck, CircleClose, Document, Cpu, Loading } from '@element-plus/icons-vue'
 import { getProjects, createProject, updateProject, deleteProject, getTasks, createTask, updateTask, getMilestones, createMilestone, updateMilestone } from '../api/projects'
@@ -603,6 +603,7 @@ const loading = ref(false)
 const statusFilter = ref('')
 const searchQuery = ref('')
 const showDialog = ref(false)
+const customerSelectRef = ref(null)
 const editingId = ref(null)
 const defaultForm = { name: '', customer_id: null, description: '', status: 'requirements', budget: null, start_date: '', end_date: '' }
 const form = ref({ ...defaultForm })
@@ -690,10 +691,24 @@ const loadCustomers = async () => {
   }
 }
 
+const onCustomerSelectFocus = () => {
+  setTimeout(() => {
+    const selectEl = customerSelectRef.value?.$el
+    if (selectEl) {
+      const input = selectEl.querySelector('input[role="combobox"]')
+      input?.focus()
+    }
+  }, 50)
+}
+
 const openCreate = () => {
   editingId.value = null
   form.value = { ...defaultForm }
   showDialog.value = true
+  setTimeout(() => {
+    const input = document.querySelector('.el-dialog input[placeholder="请输入项目名称"]')
+    input?.focus()
+  }, 100)
 }
 
 const editProject = (row) => {
@@ -834,7 +849,7 @@ const handleMilestoneSubmit = async () => {
     showMilestoneForm.value = false
     await loadDetailData(detailProject.value.id)
     loadData()
-  } catch { /* handled */ }
+  } catch (e) { console.error('[里程碑操作失败]', e) }
 }
 
 const toggleMilestone = async (m) => {
@@ -842,7 +857,7 @@ const toggleMilestone = async (m) => {
     await updateMilestone(m.id, { is_completed: !m.is_completed })
     await loadDetailData(detailProject.value.id)
     loadData()
-  } catch { /* handled */ }
+  } catch (e) { console.error('[里程碑切换失败]', e) }
 }
 
 // --- v1.7 项目关闭 ---

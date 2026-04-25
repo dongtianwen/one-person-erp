@@ -3,7 +3,7 @@ from fastapi import HTTPException, status
 
 class AccountLockedException(HTTPException):
     def __init__(self):
-        super().__init__(status_code=status.HTTP_423_LOCKED, detail="账户已锁定，请30分钟后重试")
+        super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
 
 
 class InvalidCredentialsException(HTTPException):
