@@ -211,8 +211,12 @@ async def list_pending_suggestions(
             "priority": s.priority,
             "status": s.status,
             "suggested_action": s.suggested_action,
+            "action_params": s.action_params,
             "source_rule": s.source_rule,
             "llm_enhanced": s.llm_enhanced,
+            "risk_score": s.risk_score,
+            "strategy_code": s.strategy_code,
+            "score_breakdown": s.score_breakdown,
             "created_at": s.created_at.isoformat() if s.created_at else None,
         }
         for s in items

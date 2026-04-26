@@ -1,39 +1,24 @@
 import sqlite3
-
+import json
 conn = sqlite3.connect('shubiao.db')
 cur = conn.cursor()
 
-# 获取所有表
-cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
-tables = cur.fetchall()
-print('Tables:')
-for t in tables:
-    print(f'  {t[0]}')
-
-# 检查 annotation_tasks 表结构
-print('\nannotation_tasks columns:')
-cur.execute("PRAGMA table_info(annotation_tasks)")
-cols = cur.fetchall()
-for col in cols:
-    print(f'  {col[1]} ({col[2]})')
-
-# 检查是否有数据
-cur.execute("SELECT COUNT(*) FROM annotation_tasks")
-count = cur.fetchone()[0]
-print(f'\nannotation_tasks row count: {count}')
-
-# 检查 training_experiments 表
-print('\ntraining_experiments columns:')
-cur.execute("PRAGMA table_info(training_experiments)")
-cols = cur.fetchall()
-for col in cols:
-    print(f'  {col[1]} ({col[2]})')
-
-# 检查 model_versions 表
-print('\nmodel_versions columns:')
-cur.execute("PRAGMA table_info(model_versions)")
-cols = cur.fetchall()
-for col in cols:
-    print(f'  {col[1]} ({col[2]})')
-
+cur.execute("SELECT id, decision_type, suggestion_type, title, description, priority, status, suggested_action, risk_score FROM agent_suggestions LIMIT 10")
+rows = cur.fetchall()
+result = []
+for r in rows:
+    result.append({
+        "id": r[0],
+        "decision_type": r[1],
+        "suggestion_type": r[2],
+        "title": r[3],
+        "description": r[4],
+        "priority": r[5],
+        "status": r[6],
+        "suggested_action": r[7],
+        "risk_score": r[8]
+    })
+with open('suggestions.json', 'w', encoding='utf-8') as f:
+    json.dump(result, f, ensure_ascii=False, indent=2)
+print("Done")
 conn.close()

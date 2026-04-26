@@ -102,6 +102,11 @@ async def create_project(
     if project_in.start_date and project_in.end_date and project_in.start_date > project_in.end_date:
         raise HTTPException(status_code=400, detail="开始日期不能晚于结束日期")
     project = await project_crud.project.create(db, project_in)
+    try:
+        from app.services.summary_service import refresh_summary
+        await refresh_summary(db, "project_created")
+    except Exception:
+        pass
     return ProjectResponse.model_validate(project)
 
 
@@ -130,6 +135,11 @@ async def update_project(
         )
 
     project = await project_crud.project.update(db, project, project_in)
+    try:
+        from app.services.summary_service import refresh_summary
+        await refresh_summary(db, "project_updated")
+    except Exception:
+        pass
     return ProjectResponse.model_validate(project)
 
 
@@ -156,6 +166,11 @@ async def delete_project(
     if not project:
         raise HTTPException(status_code=404, detail="项目不存在")
     await project_crud.project.remove(db, project_id)
+    try:
+        from app.services.summary_service import refresh_summary
+        await refresh_summary(db, "project_updated")
+    except Exception:
+        pass
     return {"message": "项目已删除"}
 
 

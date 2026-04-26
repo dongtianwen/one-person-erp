@@ -87,17 +87,16 @@ async def _calculate_weekly_expense(
     weeks: list[dict], db: AsyncSession, start_date: date
 ) -> dict[int, float]:
     """
-    基于历史支出计算周均支出并平均分配到每周。
-    - 统计范围：最近 3 个完整自然月（不含当月）
+    基于历史支出 + 未来里程碑付款计算周支出预测。
+    - 基础支出：最近 3 个完整自然月的周均支出
+    - 里程碑支出：按 payment_due_date 分配到对应周
     """
-    today = start_date
+    from app.models.project import Milestone
 
-    # 计算最近 3 个完整自然月的范围
-    # 不含当月，向前推 3 个完整自然月
+    today = start_date
     month = today.month
     year = today.year
 
-    # 3 个月前的月份
     end_month = month - 1
     end_year = year
     if end_month == 0:
@@ -112,13 +111,11 @@ async def _calculate_weekly_expense(
 
     from datetime import date as date_type
     hist_start = date_type(start_year, start_month, 1)
-    # 月末
     if end_month == 12:
         hist_end = date_type(end_year + 1, 1, 1) - timedelta(days=1)
     else:
         hist_end = date_type(end_year, end_month + 1, 1) - timedelta(days=1)
 
-    # 统计该范围内已确认和已付款的支出（两者均属真实支出）
     expense_result = await db.execute(
         select(func.coalesce(func.sum(FinanceRecord.amount), 0)).where(
             FinanceRecord.type == "expense",
@@ -131,14 +128,44 @@ async def _calculate_weekly_expense(
     total_expense = float(expense_result.scalar() or 0)
 
     if total_expense == 0:
-        return {w["week_index"]: 0.00 for w in weeks}
+        weekly_base = 0.0
+    else:
+        monthly_avg = total_expense / CASHFLOW_HISTORY_MONTHS
+        weekly_base = _round2(monthly_avg / CASHFLOW_WEEKS_PER_MONTH)
 
-    # 月均支出 = 3 个月总和 ÷ 3
-    monthly_avg = total_expense / CASHFLOW_HISTORY_MONTHS
-    # 周均支出 = round(月均 / WEEKS_PER_MONTH, 2)
-    weekly_avg = _round2(monthly_avg / CASHFLOW_WEEKS_PER_MONTH)
+    result = {w["week_index"]: weekly_base for w in weeks}
 
-    return {w["week_index"]: weekly_avg for w in weeks}
+    forecast_end = today + timedelta(days=CASHFLOW_FORECAST_DAYS - 1)
+    milestone_result = await db.execute(
+        select(Milestone).where(
+            Milestone.is_deleted == False,
+            Milestone.payment_status.in_(["pending", "unpaid"]),
+            Milestone.payment_due_date.isnot(None),
+            Milestone.payment_amount > 0,
+        )
+    )
+    milestones = milestone_result.scalars().all()
+
+    for ms in milestones:
+        due = ms.payment_due_date
+        if hasattr(due, "date"):
+            due = due.date()
+        if due < today or due > forecast_end:
+            continue
+
+        for week in weeks:
+            ws = week["week_start"]
+            we = week["week_end"]
+            if hasattr(ws, "date"):
+                ws = ws.date()
+            if hasattr(we, "date"):
+                we = we.date()
+            if ws <= due <= we:
+                idx = week["week_index"]
+                result[idx] = result.get(idx, 0) + float(ms.payment_amount)
+                break
+
+    return result
 
 
 @router.get("/forecast")

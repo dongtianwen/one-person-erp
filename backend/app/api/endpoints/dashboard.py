@@ -78,7 +78,7 @@ async def get_dashboard(db: AsyncSession = Depends(get_db), current_user: User =
     try:
         active_result = await db.execute(
             select(func.count(Project.id)).where(
-                Project.status.notin_(["delivery", "paused"]), Project.is_deleted == False
+                Project.status.notin_(["completed", "paused", "delivery"]), Project.is_deleted == False
             )
         )
         active_projects = active_result.scalar() or 0
@@ -271,7 +271,7 @@ async def get_todo_items(db: AsyncSession = Depends(get_db), current_user: User 
             select(Task)
             .where(Task.status.in_(["todo", "in_progress"]), Task.is_deleted == False)
             .order_by(priority_order.desc(), Task.due_date.asc())
-            .limit(10)
+            .limit(50)
         )
         tasks = task_result.scalars().all()
 

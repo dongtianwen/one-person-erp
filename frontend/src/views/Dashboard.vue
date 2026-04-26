@@ -235,15 +235,15 @@
       </el-col>
 
       <el-col :span="10">
-        <el-card class="anim-fade-in-up" v-loading="taxLoading">
+        <el-card class="anim-fade-in-up tax-card" v-loading="taxLoading">
           <template #header>
             <div class="card-header">
               <span class="card-title">季度增值税汇总</span>
-              <div style="display: flex; align-items: center; gap: 8px">
+              <div class="tax-header-actions">
                 <el-tag v-if="taxSummary.payer_type" size="small" :type="taxSummary.payer_type === 'small_scale' ? 'success' : 'primary'" round>
                   {{ taxSummary.payer_type === 'small_scale' ? '小规模' : '一般纳税人' }}
                 </el-tag>
-                <el-select v-model="taxQuarter" size="small" style="width: 120px" @change="loadTaxSummary">
+                <el-select v-model="taxQuarter" size="small" class="tax-quarter-select" @change="loadTaxSummary">
                   <el-option v-for="q in [1,2,3,4]" :key="q" :label="`${taxYear}年 Q${q}`" :value="q" />
                 </el-select>
               </div>
@@ -264,7 +264,7 @@
                 <div class="tax-label">应纳税额</div>
                 <div class="tax-value mono" :style="{ color: taxSummary.is_exempt ? '#10b981' : ((taxSummary.tax_payable || 0) >= 0 ? '#06b6d4' : '#f43f5e') }">
                   ¥{{ Number(taxSummary.tax_payable || 0).toFixed(2) }}
-                  <el-tag v-if="taxSummary.is_exempt" size="small" type="success" style="margin-left: 6px">免征</el-tag>
+                  <el-tag v-if="taxSummary.is_exempt" size="small" type="success" class="tax-exempt-tag">免征</el-tag>
                 </div>
               </div>
             </div>
@@ -324,11 +324,14 @@
       </div>
       <el-table v-else :data="wipProjects" stripe size="small">
         <el-table-column prop="name" label="项目名称" min-width="160" />
-        <el-table-column label="状态" width="90">
+        <el-table-column label="状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)" size="small">
-              {{ getStatusLabel(row.status) }}
-            </el-tag>
+            <div style="display: flex; align-items: center; gap: 4px">
+              <el-tag :type="getStatusType(row.status)" size="small">
+                {{ getStatusLabel(row.status) }}
+              </el-tag>
+              <el-tag v-if="isProjectOverdue(row)" size="small" type="danger" effect="dark">逾期</el-tag>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="进度" width="120">
@@ -668,13 +671,24 @@ const overdueData = ref({ overdue_milestones: [], customer_risk_summary: [] })
 const overdueLoading = ref(false)
 const loadOverdueWarnings = async () => {
   overdueLoading.value = true
-  try { const { data } = await getOverdueWarnings(); overdueData.value = data } catch { /* */ } finally { overdueLoading.value = false }
+  try {
+    const { data } = await getOverdueWarnings()
+    overdueData.value = data
+  } catch (err) {
+    console.error('加载逾期预警失败:', err)
+    ElMessage.warning('逾期预警加载失败，请稍后重试')
+  } finally { overdueLoading.value = false }
 }
 
 // v1.9 粗利润 Top 5
 const profitOverview = ref([])
 const loadProfitOverview = async () => {
-  try { const { data } = await getProfitOverview(); profitOverview.value = (data || []).slice(0, 5) } catch { /* */ }
+  try {
+    const { data } = await getProfitOverview()
+    profitOverview.value = (data || []).slice(0, 5)
+  } catch (err) {
+    console.error('加载利润概览失败:', err)
+  }
 }
 
 const stageLabels = { potential: '潜在客户', follow_up: '跟进中', deal: '成交', lost: '流失' }
@@ -797,21 +811,32 @@ const loadData = async () => {
     projectStatus.value = statusRes.data
     todos.value = todosRes.data
     revenueTrend.value = trendRes.data || []
-  } catch { /* silently degrade */ }
+  } catch (err) {
+    console.error('仪表盘数据加载失败:', err)
+    ElMessage.error('仪表盘数据加载失败，请刷新页面重试')
+  }
 }
 
 const handleCompleteTodo = async (task) => {
   try {
     await completeTodo(task.id)
     todos.value.tasks = todos.value.tasks.filter(t => t.id !== task.id)
-  } catch { /* silently degrade */ }
+    ElMessage.success('待办已标记完成')
+  } catch (err) {
+    console.error('标记待办完成失败:', err)
+    ElMessage.error('操作失败，请重试')
+  }
 }
 
 const handleDismissReminder = async (reminder) => {
   try {
     await dismissReminder(reminder.id)
     todos.value.reminders = todos.value.reminders.filter(r => r.id !== reminder.id)
-  } catch { /* silently degrade */ }
+    ElMessage.success('提醒已标记已处理')
+  } catch (err) {
+    console.error('标记提醒处理失败:', err)
+    ElMessage.error('操作失败，请重试')
+  }
 }
 
 const loadFinancialMetrics = async () => {
@@ -828,8 +853,8 @@ const loadFinancialMetrics = async () => {
     const monthlyReceived = num(metrics.value.monthly_income)
     const accountsReceivable = Math.max(0, num(metrics.value.accounts_receivable))
     const totalInvoiced = num(summaryData.verified?.total_amount) + num(summaryData.received?.total_amount) + num(summaryData.issued?.total_amount) + num(summaryData.draft?.total_amount)
-    const totalContractAmount = 830000
-    const unbilledAmount = Math.max(0, totalContractAmount - totalInvoiced)
+    const totalContractAmount = num(summaryMetrics.value.contract_total_amount) || 0
+    const unbilledAmount = totalContractAmount > 0 ? Math.max(0, totalContractAmount - totalInvoiced) : 0
     financialMetrics.value = {
       monthly_invoiced: monthlyInvoiced,
       monthly_received: monthlyReceived,
@@ -843,7 +868,7 @@ const loadFinancialMetrics = async () => {
       monthly_invoiced: 0, 
       monthly_received: num(metrics.value.monthly_income), 
       accounts_receivable: accountsReceivable, 
-      unbilled_amount: 830000
+      unbilled_amount: 0
     }
   }
 }
@@ -864,6 +889,11 @@ const progressColor = (p) => {
   if (p >= 70) return '#06b6d4'
   if (p >= 40) return '#f59e0b'
   return '#94a3b8'
+}
+
+const isProjectOverdue = (project) => {
+  if (!project.end_date || project.status === 'completed') return false
+  return new Date(project.end_date) < new Date()
 }
 
 const goToProject = (projectId) => {
@@ -934,7 +964,9 @@ const loadBackups = async () => {
   try {
     const { data } = await listBackups()
     backups.value = data
-  } catch { /* ignore */ }
+  } catch (err) {
+    console.error('加载备份列表失败:', err)
+  }
 }
 
 const handleVerify = async (filename) => {
@@ -1689,14 +1721,39 @@ onMounted(async () => {
   text-align: right;
 }
 
-/* ---- Responsive ---- */
-@media (max-width: 900px) {
-  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
-  .actions-content { flex-direction: column; gap: 16px; align-items: flex-start; }
+/* ---- Tax Card Responsive ---- */
+.tax-card .card-header {
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-@media (max-width: 600px) {
-  .metrics-grid { grid-template-columns: 1fr; }
+.tax-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tax-quarter-select {
+  width: 120px;
+}
+
+.tax-exempt-tag {
+  margin-left: 6px;
+}
+
+.tax-item {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tax-label {
+  flex-shrink: 0;
+}
+
+.tax-value {
+  word-break: break-all;
+  text-align: right;
 }
 
 .negative { color: #ef4444; }
