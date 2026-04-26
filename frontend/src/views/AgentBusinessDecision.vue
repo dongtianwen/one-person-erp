@@ -93,6 +93,7 @@
             </div>
             <div class="card-meta">
               <el-tag :type="priorityType(item.priority)" size="small" effect="dark" round>{{ priorityLabel(item.priority) }}</el-tag>
+              <el-tag v-if="item.strategy_code" :type="strategyTagType(item.strategy_code)" size="small" plain round>{{ strategyName(item) }}</el-tag>
               <el-tag v-if="item.llm_enhanced" type="success" size="small" plain round><el-icon :size="12"><MagicStick /></el-icon> AI</el-tag>
             </div>
           </div>
@@ -117,6 +118,36 @@
                 />
               </div>
               <span class="risk-hint">{{ riskHint(item.risk_score) }}</span>
+              <div v-if="scoreBreakdownSummary(item)" class="score-breakdown-hint">
+                {{ scoreBreakdownSummary(item) }}
+              </div>
+            </div>
+
+            <!-- 展开详情 -->
+            <div class="detail-toggle" @click="toggleExpand(item.id)">
+              <span>{{ expandedIds.includes(item.id) ? '收起详情' : '查看详情' }}</span>
+              <el-icon :class="{ rotated: expandedIds.includes(item.id) }"><ArrowDown /></el-icon>
+            </div>
+
+            <div v-if="expandedIds.includes(item.id)" class="detail-content">
+              <!-- 业务数据 -->
+              <div v-if="item.data" class="detail-block">
+                <span class="detail-label"><el-icon :size="13"><Document /></el-icon> 关键数据</span>
+                <div class="data-grid">
+                  <div v-if="item.data.project_name" class="data-item"><span class="data-k">项目</span><span class="data-v">{{ item.data.project_name }}</span></div>
+                  <div v-if="item.data.customer_name" class="data-item"><span class="data-k">客户</span><span class="data-v">{{ item.data.customer_name }}</span></div>
+                  <div v-if="item.data.overdue_days != null" class="data-item"><span class="data-k">逾期</span><span class="data-v">{{ item.data.overdue_days }} 天</span></div>
+                  <div v-if="item.data.overdue_amount != null" class="data-item"><span class="data-k">金额</span><span class="data-v">¥{{ formatAmount(item.data.overdue_amount) }}</span></div>
+                  <div v-if="item.data.amount_ratio != null" class="data-item"><span class="data-k">占比</span><span class="data-v">{{ (item.data.amount_ratio * 100).toFixed(1) }}%</span></div>
+                </div>
+              </div>
+              <!-- 执行步骤 -->
+              <div v-if="item.strategy && item.strategy.action_steps?.length" class="detail-block">
+                <span class="detail-label"><el-icon :size="13"><List /></el-icon> 执行步骤</span>
+                <ol class="step-list">
+                  <li v-for="(step, si) in item.strategy.action_steps" :key="si">{{ step }}</li>
+                </ol>
+              </div>
             </div>
           </div>
 
@@ -171,7 +202,7 @@ import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   Loading, Setting, MagicStick, ChatDotRound, Warning,
-  InfoFilled, CircleCheck, Document, Clock, Close
+  InfoFilled, CircleCheck, Document, Clock, Close, ArrowDown, List
 } from '@element-plus/icons-vue'
 import {
   runBusinessDecision,
@@ -191,6 +222,7 @@ const suggestions = ref([])
 const confirmVisible = ref(false)
 const confirmForm = ref({ id: null, title: '', description: '', decision: '', reason: '' })
 const runningModel = ref('')
+const expandedIds = ref([])
 
 let abortController = null
 let timerId = null
@@ -291,13 +323,68 @@ const priorityType = (p) => ({ high: 'danger', medium: 'warning', low: 'info' })
 const priorityLabel = (p) => ({ high: '高优先级', medium: '中优先级', low: '低优先级' })[p] || p
 
 const actionLabel = (action) => ({
-  pause_new_orders: '暂停新接单',
-  create_reminder: '创建提醒',
-  adjust_resource: '调整资源',
-  continue_monitoring: '持续观察',
-  create_todo: '创建任务',
+  pause_new_orders: '暂缓接单，专注交付',
+  create_reminder: '立即发起催收',
+  adjust_resource: '重新调配人力',
+  continue_monitoring: '持续跟进，择机拓展',
+  create_todo: '创建跟进任务',
   none: '无需操作',
 })[action] || action
+
+const strategyMap = {
+  light_reminder: '轻度提醒',
+  escalated_reminder: '升级催收',
+  management_escalation: '高层介入',
+  delivery_suspension: '暂停交付评估',
+  conservative_growth: '稳健经营',
+  cashflow_protection: '现金流保护',
+  focus_delivery: '聚焦交付',
+  diversification: '多元拓展',
+}
+
+const strategyName = (item) => {
+  if (item.strategy?.strategy_name) return item.strategy.strategy_name
+  return strategyMap[item.strategy_code] || item.suggested_action || ''
+}
+
+const strategyTagType = (code) => ({
+  light_reminder: '',
+  escalated_reminder: 'warning',
+  management_escalation: 'danger',
+  delivery_suspension: 'danger',
+  conservative_growth: '',
+  cashflow_protection: 'warning',
+  focus_delivery: 'warning',
+  diversification: '',
+})[code] || 'info'
+
+const toggleExpand = (id) => {
+  const idx = expandedIds.value.indexOf(id)
+  if (idx >= 0) expandedIds.value.splice(idx, 1)
+  else expandedIds.value.push(id)
+}
+
+const formatAmount = (val) => {
+  if (val == null) return '0'
+  if (val >= 10000) return (val / 10000).toFixed(1) + '万'
+  return val.toLocaleString()
+}
+
+const scoreBreakdownSummary = (item) => {
+  let sb = item.score_breakdown
+  if (!sb) return ''
+  if (typeof sb === 'string') {
+    try { sb = JSON.parse(sb) } catch { return '' }
+  }
+  if (typeof sb !== 'object') return ''
+  const dims = []
+  if (sb.days_overdue_score >= 20) dims.push(`逾期天数 ${sb.days_overdue_score}`)
+  if (sb.amount_score >= 14) dims.push(`金额规模 ${sb.amount_score}`)
+  if (sb.amount_ratio_score >= 14) dims.push(`金额占比 ${sb.amount_ratio_score}`)
+  if (sb.customer_risk_score >= 10) dims.push(`客户风险 ${sb.customer_risk_score}`)
+  if (!dims.length) return ''
+  return `主要风险：${dims.slice(0, 3).join('、')} 分`
+}
 
 const riskLevelClass = (score) => {
   if (!score) return ''
@@ -480,4 +567,47 @@ onBeforeUnmount(() => { if (timerId) clearInterval(timerId) })
   border-left: 4px solid #667eea; font-size: 13px; color: #4b5563;
   line-height: 1.7; margin-bottom: 16px;
 }
+
+/* 评分拆解提示 */
+.score-breakdown-hint {
+  font-size: 11px; color: #e6a23c; margin-top: 4px; display: block;
+}
+
+/* 展开详情 */
+.detail-toggle {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 12px; color: #667eea; cursor: pointer;
+  padding: 8px 0 4px; user-select: none;
+}
+.detail-toggle:hover { color: #409eff; }
+.detail-toggle .el-icon { transition: transform 0.25s ease; }
+.detail-toggle .el-icon.rotated { transform: rotate(180deg); }
+
+.detail-content {
+  margin-top: 10px; padding-top: 12px;
+  border-top: 1px dashed #e5e7eb;
+}
+.detail-block { margin-bottom: 12px; }
+.detail-block:last-child { margin-bottom: 0; }
+.detail-label {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; color: #667eea; font-weight: 600; margin-bottom: 8px;
+}
+
+/* 数据网格 */
+.data-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.data-item {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #f5f7fa; border-radius: 6px; padding: 5px 10px;
+  font-size: 12px;
+}
+.data-k { color: #9ca3af; }
+.data-v { color: #374151; font-weight: 500; }
+
+/* 步骤列表 */
+.step-list {
+  margin: 0; padding-left: 18px; font-size: 13px; line-height: 2;
+}
+.step-list li { color: #4b5563; }
+.step-list li::marker { color: #667eea; font-weight: 700; }
 </style>

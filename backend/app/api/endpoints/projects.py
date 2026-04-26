@@ -598,3 +598,161 @@ async def update_estimated_hours(
     await db.commit()
 
     return {"estimated_hours": update_in.estimated_hours}
+
+
+# ── v2.0 项目复盘接口 ───────────────────────────────────────────────
+
+
+class RetrospectiveCreate(BaseModel):
+    """复盘创建请求。"""
+    summary: Optional[str] = None
+    what_went_well: Optional[str] = None
+    what_to_improve: Optional[str] = None
+    improvement_actions: Optional[list] = None
+
+
+class RetrospectiveUpdate(BaseModel):
+    """复盘更新请求。"""
+    summary: Optional[str] = None
+    what_went_well: Optional[str] = None
+    what_to_improve: Optional[str] = None
+    improvement_actions: Optional[list] = None
+
+
+@router.get("/{project_id}/retrospectives")
+async def list_retrospectives(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """获取项目复盘列表，按提交时间倒序。"""
+    project = await project_crud.project.get(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    from app.models.project import ProjectRetrospective
+    stmt = select(ProjectRetrospective).where(
+        ProjectRetrospective.project_id == project_id,
+    ).order_by(ProjectRetrospective.submitted_at.desc().nulls_last(), ProjectRetrospective.created_at.desc())
+    result = (await db.execute(stmt)).scalars().all()
+    return [
+        {
+            "id": r.id,
+            "project_id": r.project_id,
+            "created_by": r.created_by,
+            "summary": r.summary,
+            "what_went_well": r.what_went_well,
+            "what_to_improve": r.what_to_improve,
+            "improvement_actions": r.improvement_actions,
+            "auto_metrics": r.auto_metrics,
+            "status": r.status,
+            "submitted_at": r.submitted_at.isoformat() if r.submitted_at else None,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in result
+    ]
+
+
+@router.post("/{project_id}/retrospectives/preview")
+async def preview_auto_metrics(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """预览自动聚合指标（不创建记录）。"""
+    project = await project_crud.project.get(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    from app.core.retrospective_utils import generate_auto_metrics
+    metrics = await generate_auto_metrics(project_id, db)
+    return {"auto_metrics": metrics}
+
+
+@router.post("/{project_id}/retrospectives", status_code=201)
+async def create_retrospective(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """创建复盘记录（自动填充 auto_metrics）。"""
+    project = await project_crud.project.get(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    from app.core.retrospective_utils import generate_auto_metrics
+    from app.models.project import ProjectRetrospective
+
+    auto_metrics = await generate_auto_metrics(project_id, db)
+
+    retro = ProjectRetrospective(
+        project_id=project_id,
+        created_by=current_user.username if current_user else None,
+        auto_metrics=auto_metrics,
+        status="draft",
+    )
+    db.add(retro)
+    await db.commit()
+    await db.refresh(retro)
+
+    return {
+        "id": retro.id,
+        "status": retro.status,
+        "auto_metrics": retro.auto_metrics,
+        "created_at": retro.created_at.isoformat() if retro.created_at else None,
+    }
+
+
+@router.put("/retrospectives/{retro_id}")
+async def update_retrospective(
+    retro_id: int,
+    update_in: RetrospectiveUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """更新复盘内容（仅 draft 状态可编辑）。"""
+    from app.models.project import ProjectRetrospective
+    stmt = select(ProjectRetrospective).where(ProjectRetrospective.id == retro_id)
+    retro = (await db.execute(stmt)).scalar_one_or_none()
+    if not retro:
+        raise HTTPException(status_code=404, detail="复盘记录不存在")
+
+    if retro.status == "submitted":
+        raise HTTPException(status_code=400, detail="已提交的复盘不可修改")
+
+    if update_in.summary is not None:
+        retro.summary = update_in.summary
+    if update_in.what_went_well is not None:
+        retro.what_went_well = update_in.what_went_well
+    if update_in.what_to_improve is not None:
+        retro.what_to_improve = update_in.what_to_improve
+    if update_in.improvement_actions is not None:
+        retro.improvement_actions = update_in.improvement_actions
+
+    await db.commit()
+    await db.refresh(retro)
+    return {"message": "保存成功", "id": retro.id, "status": retro.status}
+
+
+@router.put("/retrospectives/{retro_id}/submit")
+async def submit_retrospective(
+    retro_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """提交复盘（draft → submitted）。"""
+    from app.models.project import ProjectRetrospective
+    from datetime import datetime as dt
+
+    stmt = select(ProjectRetrospective).where(ProjectRetrospective.id == retro_id)
+    retro = (await db.execute(stmt)).scalar_one_or_none()
+    if not retro:
+        raise HTTPException(status_code=404, detail="复盘记录不存在")
+
+    if retro.status == "submitted":
+        raise HTTPException(status_code=400, detail="该复盘已提交")
+
+    retro.status = "submitted"
+    retro.submitted_at = dt.utcnow()
+    await db.commit()
+    return {"message": "复盘已提交", "id": retro.id, "submitted_at": retro.submitted_at.isoformat()}

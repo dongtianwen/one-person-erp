@@ -46,6 +46,7 @@ class Project(Base, TimestampMixin):
     deliverables = relationship("Deliverable", back_populates="project")
     releases = relationship("Release", back_populates="project")
     maintenance_periods = relationship("MaintenancePeriod", back_populates="project")
+    retrospectives = relationship("ProjectRetrospective", back_populates="project", cascade="all, delete-orphan")
 
 
 class Task(Base, TimestampMixin):
@@ -94,3 +95,21 @@ class Milestone(Base, TimestampMixin):
     payment_status = Column(String(20), nullable=False, default="unpaid")  # unpaid/invoiced/received
 
     project = relationship("Project", back_populates="milestones")
+
+
+class ProjectRetrospective(Base, TimestampMixin):
+    """v2.0 项目复盘记录。"""
+    __tablename__ = "project_retrospectives"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    created_by = Column(String(100), nullable=True)
+    summary = Column(Text, nullable=True)
+    what_went_well = Column(Text, nullable=True)
+    what_to_improve = Column(Text, nullable=True)
+    improvement_actions = Column(JSON, nullable=True)
+    auto_metrics = Column(JSON, nullable=True)
+    status = Column(String(20), default="draft")
+    submitted_at = Column(DateTime, nullable=True)
+
+    project = relationship("Project", back_populates="retrospectives")

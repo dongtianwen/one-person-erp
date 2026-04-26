@@ -157,6 +157,7 @@ async def run_agent(
                 strategy_code=item.get("strategy_code", ""),
                 score_breakdown=item.get("score_breakdown"),
             )
+            _enrich_action_params(suggestion, item)
             db.add(suggestion)
 
         # 4. 标记运行完成
@@ -189,3 +190,28 @@ async def run_agent(
             detail=f"Agent 运行失败: {e}",
             code="ACTION_EXECUTION_FAILED",
         )
+
+
+def _enrich_action_params(suggestion: Any, item: Dict) -> None:
+    import json as _json
+    extra = {}
+    if item.get("data"):
+        d = item["data"]
+        if isinstance(d, str):
+            try: d = _json.loads(d)
+            except Exception: pass
+        extra["_data"] = d
+    if item.get("_strategy"):
+        s = item["_strategy"]
+        if isinstance(s, dict):
+            extra["_strategy"] = {
+                "strategy_name": s.get("strategy_name", ""),
+                "action_steps": s.get("action_steps", []),
+            }
+    if extra and suggestion.action_params:
+        try:
+            existing = _json.loads(suggestion.action_params) if suggestion.action_params else {}
+        except Exception:
+            existing = {}
+        existing.update(extra)
+        suggestion.action_params = _json.dumps(existing, ensure_ascii=False)

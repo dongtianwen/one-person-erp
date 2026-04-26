@@ -348,6 +348,9 @@
         <el-tab-pane label="工时记录" name="work-hours">
           <WorkHoursTab :project-id="detailProject?.id" />
         </el-tab-pane>
+        <el-tab-pane label="复盘" name="retrospective" v-if="detailProject && ['completed', 'in_progress', 'testing'].includes(detailProject.status)">
+          <RetrospectiveTab :project-id="detailProject?.id" />
+        </el-tab-pane>
         <!-- v1.11 新增 Tabs -->
         <el-tab-pane label="数据集" name="datasets">
           <DatasetsTab :project-id="detailProject?.id" />
@@ -595,6 +598,7 @@ import AnnotationTasksTab from './project-tabs/AnnotationTasksTab.vue'
 import TrainingExperimentsTab from './project-tabs/TrainingExperimentsTab.vue'
 import ModelVersionsTab from './project-tabs/ModelVersionsTab.vue'
 import DeliveryPackagesTab from './project-tabs/DeliveryPackagesTab.vue'
+import RetrospectiveTab from './project-tabs/RetrospectiveTab.vue'
 import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 
 const projects = ref([])

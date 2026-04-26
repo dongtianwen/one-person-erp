@@ -201,26 +201,43 @@ async def list_pending_suggestions(
     items = items[skip:skip + limit]
 
     return {"code": 0, "data": [
-        {
-            "id": s.id,
-            "agent_run_id": s.agent_run_id,
-            "decision_type": s.decision_type,
-            "suggestion_type": s.suggestion_type,
-            "title": s.title,
-            "description": s.description,
-            "priority": s.priority,
-            "status": s.status,
-            "suggested_action": s.suggested_action,
-            "action_params": s.action_params,
-            "source_rule": s.source_rule,
-            "llm_enhanced": s.llm_enhanced,
-            "risk_score": s.risk_score,
-            "strategy_code": s.strategy_code,
-            "score_breakdown": s.score_breakdown,
-            "created_at": s.created_at.isoformat() if s.created_at else None,
-        }
+        _build_suggestion_response(s)
         for s in items
     ]}
+
+
+def _build_suggestion_response(s) -> dict:
+    import json as _json
+    resp = {
+        "id": s.id,
+        "agent_run_id": s.agent_run_id,
+        "decision_type": s.decision_type,
+        "suggestion_type": s.suggestion_type,
+        "title": s.title,
+        "description": s.description,
+        "priority": s.priority,
+        "status": s.status,
+        "suggested_action": s.suggested_action,
+        "source_rule": s.source_rule,
+        "llm_enhanced": s.llm_enhanced,
+        "risk_score": s.risk_score,
+        "strategy_code": s.strategy_code,
+        "score_breakdown": s.score_breakdown,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+    }
+    if s.action_params:
+        try:
+            ap = _json.loads(s.action_params)
+            if isinstance(ap, dict):
+                if "_data" in ap:
+                    resp["data"] = ap["_data"]
+                if "_strategy" in ap:
+                    st = ap["_strategy"]
+                    if isinstance(st, dict):
+                        resp["strategy"] = st
+        except Exception:
+            pass
+    return resp
 @router.get("/ollama-models")
 async def list_ollama_models(
     db: AsyncSession = Depends(get_db),
