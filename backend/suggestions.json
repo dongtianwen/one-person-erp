@@ -1,0 +1,112 @@
+[
+  {
+    "id": 1,
+    "decision_type": "overdue_payment",
+    "suggestion_type": "overdue_payment",
+    "title": "发现 2 笔逾期回款",
+    "description": "共 2 笔回款逾期，合计 ¥560,000.00，建议尽快跟进。",
+    "priority": "medium",
+    "status": "superseded",
+    "suggested_action": "create_todo",
+    "risk_score": 0
+  },
+  {
+    "id": 2,
+    "decision_type": "overdue_payment",
+    "suggestion_type": "overdue_payment",
+    "title": "发现 2 笔逾期回款",
+    "description": "共 2 笔回款逾期，合计 ¥560,000.00，建议尽快跟进。",
+    "priority": "medium",
+    "status": "superseded",
+    "suggested_action": "create_todo",
+    "risk_score": 0
+  },
+  {
+    "id": 20,
+    "decision_type": "overdue_payment",
+    "suggestion_type": "overdue_payment",
+    "title": "发现 2 笔逾期回款",
+    "description": "共 2 笔回款逾期，合计 ¥560,000.00，建议尽快跟进。",
+    "priority": "medium",
+    "status": "superseded",
+    "suggested_action": "create_todo",
+    "risk_score": 0
+  },
+  {
+    "id": 22,
+    "decision_type": "overdue_payment",
+    "suggestion_type": "overdue_payment",
+    "title": "发现 2 笔逾期回款",
+    "description": "共 2 笔回款逾期，合计 ¥560,000.00，建议尽快跟进。",
+    "priority": "medium",
+    "status": "rejected",
+    "suggested_action": "create_todo",
+    "risk_score": 0
+  },
+  {
+    "id": 45,
+    "decision_type": "task_delay",
+    "suggestion_type": "task_delay",
+    "title": "任务延误风险",
+    "description": "任务「需求调研与业务流程梳理」延误 9 天，可能导致项目进度滞后，增加成本压力。责任部门应立即评估影响，制定赶工计划，并报告上级管理层。",
+    "priority": "medium",
+    "status": "superseded",
+    "suggested_action": "create_reminder",
+    "risk_score": 0
+  },
+  {
+    "id": 69,
+    "decision_type": "overdue_payment",
+    "suggestion_type": "overdue_payment",
+    "title": "重点项目回款滞后，需立即催收。",
+    "description": "当前发现总计 ¥560,000.00 的回款逾期，涉及核心项目“智能政务多模态交互系统”的两个关键阶段（M1和M2）。其中M1阶段（需求确认与方案设计）已逾期30天，金额为 ¥240,000.00，风险等级最高；M2阶段（数据集构建与模型训练）已逾期7天，金额为 ¥320,000.00。应立即升级催收层级，由财务部门牵头，联合项目管理部（PMO）与客户方进行书面沟通，明确新的付款节点和延期原因，并制定风险预警机制，确保回款流程不再次中断。",
+    "priority": "medium",
+    "status": "superseded",
+    "suggested_action": "create_todo",
+    "risk_score": 0
+  },
+  {
+    "id": 76,
+    "decision_type": "delivery_qc",
+    "suggestion_type": "delivery_missing_acceptance",
+    "title": "交付验收缺失",
+    "description": "智能政务问答系统 Alpha 交付包存在严重交付质量风险，因缺少验收记录可能导致系统功能缺陷或安全漏洞。需立即安排专业团队进行严格验收，确保交付质量符合标准。同时，启动问题追踪机制，记录并分析验收过程中发现的问题，制定整改计划。",
+    "priority": "high",
+    "status": "pending",
+    "suggested_action": "create_reminder",
+    "risk_score": 0
+  },
+  {
+    "id": 77,
+    "decision_type": "change_impact",
+    "suggestion_type": "change_impact",
+    "title": "变更单处理预警",
+    "description": "企业数据中台项目有 1 条变更单待确认，涉及金额 50,000 元，已待办 5 天。责任部门需立即审查变更需求，评估变更对项目的影响，并决定是否批准。延迟处理可能影响项目预算和客户满意度。",
+    "priority": "medium",
+    "status": "superseded",
+    "suggested_action": "none",
+    "risk_score": 0
+  },
+  {
+    "id": 78,
+    "decision_type": "overdue_payment",
+    "suggestion_type": "overdue_payment",
+    "title": "逾期回款处理",
+    "description": "检测到2笔逾期回款，总金额达¥560,000.00，最大逾期天数32天，涉及项目为智能政务多模态交互系统。风险评分为50分，属于低风险。需财务部门立即采取升级催收策略，包括发送书面催收函、确认延期原因并确定新付款节点，以避免进一步资金风险。",
+    "priority": "medium",
+    "status": "superseded",
+    "suggested_action": "create_todo",
+    "risk_score": 50
+  },
+  {
+    "id": 79,
+    "decision_type": "overdue_payment",
+    "suggestion_type": "overdue_payment",
+    "title": "逾期回款处理",
+    "description": "发现2笔逾期回款，总额达560,000.00元，存在低风险。具体项目包括智能政务多模态交互系统，其中一笔逾期32天，另一笔9天。需立即启动升级催收策略，由财务部门牵头，在48小时内发送书面催收函并确认新付款节点，以降低潜在的资金风险。",
+    "priority": "medium",
+    "status": "superseded",
+    "suggested_action": "create_todo",
+    "risk_score": 50
+  }
+]
