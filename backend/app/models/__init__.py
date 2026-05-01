@@ -37,6 +37,7 @@ from app.models.dashboard_summary import DashboardSummary
 from app.models.meeting_minute import MeetingMinute
 from app.models.tool_entry import ToolEntry
 from app.models.lead import Lead
+from app.models.rd_expense import RdExpense
 
 __all__ = [
     "Base",
@@ -86,4 +87,5 @@ __all__ = [
     "MeetingMinute",
     "ToolEntry",
     "Lead",
+    "RdExpense",
 ]

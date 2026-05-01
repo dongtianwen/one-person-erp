@@ -178,5 +178,29 @@ class CRUDFinanceRecord(CRUDBase[FinanceRecord, FinanceRecordCreate, FinanceReco
 
         return {"count": total_count, "total_amount": total_amount}
 
+    async def remove(self, db: AsyncSession, id: int) -> bool:
+        """软删除财务记录，同时清空关联的研发费用外键。"""
+        from app.models.rd_expense import RdExpense
+
+        obj = await self.get(db, id)
+        if obj is None:
+            return False
+
+        # 清空关联 RdExpense 的 finance_record_id（避免悬空外键）
+        result = await db.execute(
+            select(RdExpense).where(
+                RdExpense.finance_record_id == id,
+                RdExpense.is_deleted == False,
+            )
+        )
+        for rd in result.scalars().all():
+            rd.finance_record_id = None
+            db.add(rd)
+
+        obj.is_deleted = True
+        db.add(obj)
+        await db.commit()
+        return True
+
 
 finance_record = CRUDFinanceRecord(FinanceRecord)

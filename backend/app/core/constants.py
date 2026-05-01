@@ -541,3 +541,75 @@ LEAD_VALID_TRANSITIONS: dict[str, list[str]] = {
     LEAD_STATUS_CONVERTED: [],
     LEAD_STATUS_INVALID: [],
 }
+
+# ── v2.3 研发费用台账 ──────────────────────────────────────
+RD_NO_PREFIX: str = "RD"
+RD_CATEGORY_WHITELIST: list[str] = ["personnel", "direct_input", "depreciation", "amortization", "design_other", "outsourced_rd"]
+RD_STATUS_WHITELIST: list[str] = ["draft", "verified", "submitted", "rejected"]
+RD_VALID_TRANSITIONS: dict[str, list[str]] = {
+    "draft": ["verified", "rejected"],
+    "verified": ["submitted", "rejected"],
+    "submitted": [],
+    "rejected": ["verified"],
+}
+
+# 研发费用大类标签（中文）
+RD_CATEGORY_LABELS: dict[str, str] = {
+    "personnel": "人员人工费用",
+    "direct_input": "直接投入费用",
+    "depreciation": "折旧费用",
+    "amortization": "无形资产摊销",
+    "design_other": "设计/试验/其他费用",
+    "outsourced_rd": "委托外部研发",
+}
+
+# 研发费用子分类标签（中文）
+RD_SUB_CATEGORY_LABELS: dict[str, str] = {
+    # 人员人工
+    "salary": "工资薪金",
+    "social_insurance": "五险一金",
+    "welfare": "职工福利费",
+    "expert_fee": "外聘专家劳务费",
+    # 直接投入
+    "material": "材料费",
+    "fuel_power": "燃料/动力费",
+    "test_equipment": "测试仪器购置/租赁",
+    "software_purchase": "软件采购",
+    "sample_prototype": "样机/样品试制费",
+    # 折旧
+    "equipment_depre": "仪器设备折旧",
+    "building_depre": "房屋建筑物折旧",
+    # 无形资产摊销
+    "soft_amort": "软件摊销",
+    "patent_amort": "专利/非专利技术摊销",
+    # 设计/试验/其他
+    "design_fee": "新产品设计费",
+    "process_fee": "工艺规程制定费",
+    "test_fee": "检验试验费",
+    "travel": "研发差旅费",
+    "data_book": "资料翻译/图书资料费",
+    "other_rd": "其他研发费用",
+    # 委托外部研发
+    "domestic_outsource": "委托境内机构",
+    "foreign_outsource": "委托境外机构",
+}
+
+# 研发费用状态标签
+RD_STATUS_LABELS: dict[str, str] = {
+    "draft": "草稿",
+    "verified": "已核实",
+    "submitted": "已提交申报",
+    "rejected": "已驳回",
+}
+
+# 子分类 → 大类 映射（用于校验）
+RD_SUB_TO_CATEGORY_MAP: dict[str, str] = {
+    "salary": "personnel", "social_insurance": "personnel", "welfare": "personnel", "expert_fee": "personnel",
+    "material": "direct_input", "fuel_power": "direct_input", "test_equipment": "direct_input",
+    "software_purchase": "direct_input", "sample_prototype": "direct_input",
+    "equipment_depre": "depreciation", "building_depre": "depreciation",
+    "soft_amort": "amortization", "patent_amort": "amortization",
+    "design_fee": "design_other", "process_fee": "design_other", "test_fee": "design_other",
+    "travel": "design_other", "data_book": "design_other", "other_rd": "design_other",
+    "domestic_outsource": "outsourced_rd", "foreign_outsource": "outsourced_rd",
+}

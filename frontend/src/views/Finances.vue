@@ -111,10 +111,20 @@
             <span v-else class="text-tertiary">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="80" fixed="right">
+        <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
             <div class="action-btns">
               <el-button link type="primary" size="small" @click="editRecord(row)">编辑</el-button>
+              <el-button
+                v-if="row.type === 'expense' && !row.is_rd_linked"
+                link type="warning" size="small"
+                @click="openImportToRd(row)"
+              >归入研发</el-button>
+              <el-tag
+                v-else-if="row.is_rd_linked"
+                size="small" type="success"
+                style="margin-left: 8px;"
+              >已入研</el-tag>
             </div>
           </template>
         </el-table-column>
@@ -200,6 +210,7 @@
                     <el-option label="合同数据" value="contracts" />
                     <el-option label="收款数据" value="payments" />
                     <el-option label="发票数据" value="invoices" />
+                    <el-option label="研发费用台账" value="rd_expenses" />
                   </el-select>
                 </el-form-item>
                 <el-form-item label="时间范围">
@@ -451,6 +462,103 @@
             <div v-else-if="!reconciliationLoading" class="empty-hint">请选择会计期间查看对账报表</div>
           </div>
         </el-tab-pane>
+
+        <!-- v2.3 研发费用台账 Tab -->
+        <el-tab-pane label="研发费用台账" name="rd-expense">
+          <div class="rd-section">
+            <div class="rd-toolbar">
+              <el-button type="primary" size="small" @click="openRdCreate"><el-icon><Plus /></el-icon> 新建研发费用</el-button>
+              <el-button size="small" @click="handleRdExport" :loading="rdExporting">导出 Excel</el-button>
+              <div class="rd-filter-group">
+                <el-select v-model="rdYearFilter" placeholder="年份" clearable style="width: 110px" popper-class="rd-filter-year-select" @change="loadRdList">
+                  <el-option v-for="y in rdYearOptions" :key="y" :label="y + '年'" :value="y" />
+                </el-select>
+                <el-select v-model="rdQuarterFilter" placeholder="季度" clearable style="width: 110px" popper-class="rd-filter-quarter-select" @change="loadRdList">
+                  <el-option label="Q1 (1-3月)" :value="1" />
+                  <el-option label="Q2 (4-6月)" :value="2" />
+                  <el-option label="Q3 (7-9月)" :value="3" />
+                  <el-option label="Q4 (10-12月)" :value="4" />
+                </el-select>
+                <el-select v-model="rdCategoryFilter" placeholder="费用大类" clearable style="width: 160px" popper-class="rd-filter-category-select" @change="loadRdList">
+                  <el-option v-for="(label, val) in rdCategoryLabelMap" :key="val" :label="label" :value="val" />
+                </el-select>
+                <el-select v-model="rdStatusFilter" placeholder="状态" clearable style="width: 110px" popper-class="rd-filter-status-select" @change="loadRdList">
+                  <el-option v-for="(label, val) in rdStatusLabelMap" :key="val" :label="label" :value="val" />
+                </el-select>
+              </div>
+            </div>
+
+            <div v-if="rdSummary.total_grand" class="rd-summary-bar">
+              <div class="rd-summary-item">
+                <span class="rd-summary-label">费用合计（不含税）</span>
+                <span class="rd-summary-val mono">¥{{ rdSummary.total_amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) }}</span>
+              </div>
+              <div class="rd-summary-item">
+                <span class="rd-summary-label">税额合计</span>
+                <span class="rd-summary-val mono">¥{{ rdSummary.total_tax_amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) }}</span>
+              </div>
+              <div class="rd-summary-item primary">
+                <span class="rd-summary-label">价税合计</span>
+                <span class="rd-summary-val mono">¥{{ rdSummary.total_grand.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) }}</span>
+              </div>
+              <div v-for="cat in rdSummary.categories" :key="cat.category" class="rd-summary-cat-chip">
+                <span>{{ cat.category_label }}: ¥{{ cat.total_amount.toFixed(2) }} ({{ cat.count }}笔)</span>
+              </div>
+            </div>
+
+            <el-table :data="rdList" style="width: 100%" v-loading="rdLoading" size="small">
+              <el-table-column prop="rd_no" label="编号" width="170">
+                <template #default="{ row }"><span class="mono">{{ row.rd_no }}</span></template>
+              </el-table-column>
+              <el-table-column prop="expense_date" label="日期" width="100">
+                <template #default="{ row }"><span class="mono">{{ row.expense_date }}</span></template>
+              </el-table-column>
+              <el-table-column prop="rd_category" label="费用大类" width="130">
+                <template #default="{ row }">
+                  <el-tag size="small">{{ rdCategoryLabelMap[row.rd_category] || row.rd_category }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="rd_sub_category" label="子分类" width="120">
+                <template #default="{ row }">{{ rdSubCategoryLabelMap[row.rd_sub_category] || row.rd_sub_category || '-' }}</template>
+              </el-table-column>
+              <el-table-column prop="amount" label="金额（不含税）" width="120" align="right">
+                <template #default="{ row }"><span class="mono">¥{{ (row.amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) }}</span></template>
+              </el-table-column>
+              <el-table-column prop="total_amount" label="价税合计" width="110" align="right">
+                <template #default="{ row }"><span class="mono">¥{{ (row.total_amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) }}</span></template>
+              </el-table-column>
+              <el-table-column prop="vendor_name" label="供应商" width="120" show-overflow-tooltip />
+              <el-table-column prop="invoice_no" label="凭证号" width="120">
+                <template #default="{ row }"><span class="mono">{{ row.invoice_no || '-' }}</span></template>
+              </el-table-column>
+              <el-table-column prop="status" label="状态" width="90">
+                <template #default="{ row }">
+                  <el-tag size="small" round>{{ rdStatusLabelMap[row.status] || row.status }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="来源" width="90">
+                <template #default="{ row }">
+                  <el-tag v-if="row.finance_record_id" size="small" type="success">财务导入</el-tag>
+                  <el-tag v-else size="small" type="info">手工录入</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="180" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" size="small" @click="editRd(row)">编辑</el-button>
+                  <el-button v-if="row.status === 'draft'" link type="danger" size="small" @click="deleteRd(row.id)">删除</el-button>
+                  <el-button v-if="row.status === 'draft'" link type="success" size="small" @click="verifyRd(row)">核实</el-button>
+                  <el-button v-if="row.status === 'verified'" link type="warning" size="small" @click="submitRd(row)">提交</el-button>
+                  <el-button v-if="row.finance_record_id" link type="info" size="small" @click="handleUnlinkFinance(row)">解绑</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div v-if="!rdLoading && !rdList.length" class="empty-hint">暂无研发费用记录</div>
+
+            <div class="pagination-wrap" v-if="rdTotal > rdPageSize">
+              <el-pagination v-model:current-page="rdPage" :page-size="rdPageSize" :total="rdTotal" layout="total, prev, pager, next" @current-change="loadRdList" />
+            </div>
+          </div>
+        </el-tab-pane>
       </el-tabs>
     </el-card>
 
@@ -553,6 +661,129 @@
       <template #footer>
         <el-button @click="iiDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="handleIiSubmit">{{ iiEditingId ? '保存' : '创建' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- v2.3 研发费用 Dialog -->
+    <el-dialog v-model="rdDialogVisible" :title="rdEditingId ? '编辑研发费用' : '新建研发费用'" width="580px" destroy-on-close>
+      <el-form :model="rdForm" label-position="top">
+        <div class="form-grid">
+          <el-form-item label="费用大类" required>
+            <el-select v-model="rdForm.rd_category" style="width: 100%" popper-class="rd-dialog-category-select" @change="onRdCategoryChange">
+              <el-option v-for="(label, val) in rdCategoryLabelMap" :key="val" :label="label" :value="val" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="子分类">
+            <el-select v-model="rdForm.rd_sub_category" style="width: 100%" popper-class="rd-dialog-subcategory-select" clearable placeholder="可选">
+              <el-option v-for="(label, val) in rdSubCategoryOptions" :key="val" :label="label" :value="val" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="金额（不含税）" required>
+            <el-input-number v-model="rdForm.amount" :precision="2" :min="0.01" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="税额">
+            <el-input-number v-model="rdForm.tax_amount" :precision="2" :min="0" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="费用发生日期" required>
+            <el-date-picker v-model="rdForm.expense_date" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="所属项目">
+            <el-select v-model="rdForm.project_id" filterable clearable remote allow-create default-first-option popper-class="rd-dialog-project-select"
+              :remote-method="searchRdProjects" placeholder="搜索项目（可留空）" style="width: 100%">
+              <el-option v-for="p in rdProjectOptions" :key="p.id" :label="p.name" :value="p.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="供应商/收款方">
+            <el-input v-model="rdForm.vendor_name" placeholder="供应商名称（选填）" />
+          </el-form-item>
+          <el-form-item label="凭证号/发票号">
+            <el-input v-model="rdForm.invoice_no" placeholder="发票号或凭证号（选填）" />
+          </el-form-item>
+          <el-form-item label="是否取得凭证">
+            <el-radio-group v-model="rdForm.has_invoice">
+              <el-radio-button :value="true">是</el-radio-button>
+              <el-radio-button :value="false">否</el-radio-button>
+              <el-radio-button :value="null">未定</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="费用说明">
+            <el-input v-model="rdForm.description" type="textarea" :rows="2" placeholder="费用说明（选填）" />
+          </el-form-item>
+          <el-form-item label="备注">
+            <el-input v-model="rdForm.notes" type="textarea" :rows="2" placeholder="备注信息（选填）" />
+          </el-form-item>
+        </div>
+      </el-form>
+      <template #footer>
+        <el-button @click="rdDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleRdSubmit">{{ rdEditingId ? '保存' : '创建' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- v2.3 从财务记录导入研发费用对话框 -->
+    <el-dialog v-model="importRdDialogVisible" title="归入研发费用台账" width="560px" destroy-on-close>
+      <el-alert type="info" :closable="false" style="margin-bottom: 16px">
+        <template #title>
+          金额 <b>¥{{ importRdForm.amount }}</b>、日期 <b>{{ importRdForm.expense_date }}</b> 已从财务记录自动填充，请补充费用分类信息。
+        </template>
+      </el-alert>
+      <el-form :model="importRdForm" label-position="top">
+        <div class="form-grid">
+          <el-form-item label="费用大类" required>
+            <el-select v-model="importRdForm.rd_category" style="width: 100%" popper-class="rd-import-category-select" @change="onImportRdCategoryChange">
+              <el-option v-for="(label, val) in rdCategoryLabelMap" :key="val" :label="label" :value="val" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="子分类">
+            <el-select v-model="importRdForm.rd_sub_category" style="width: 100%" popper-class="rd-import-subcategory-select" clearable placeholder="可选">
+              <el-option v-for="(label, val) in importRdSubCategoryOptions" :key="val" :label="label" :value="val" />
+            </el-select>
+          </el-form-item>
+        </div>
+        <div class="form-grid">
+          <el-form-item label="金额（不含税）" required>
+            <el-input-number v-model="importRdForm.amount" :precision="2" :min="0.01" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="税额">
+            <el-input-number v-model="importRdForm.tax_amount" :precision="2" :min="0" style="width: 100%" />
+          </el-form-item>
+        </div>
+        <div class="form-grid">
+          <el-form-item label="费用发生日期" required>
+            <el-date-picker v-model="importRdForm.expense_date" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="所属项目">
+            <el-select v-model="importRdForm.project_id" filterable clearable remote allow-create default-first-option popper-class="rd-import-project-select"
+              :remote-method="searchRdProjects" placeholder="搜索项目（可留空）" style="width: 100%">
+              <el-option v-for="p in rdProjectOptions" :key="p.id" :label="p.name" :value="p.id" />
+            </el-select>
+          </el-form-item>
+        </div>
+        <div class="form-grid">
+          <el-form-item label="供应商/收款方">
+            <el-input v-model="importRdForm.vendor_name" placeholder="供应商名称（选填）" />
+          </el-form-item>
+          <el-form-item label="凭证号/发票号">
+            <el-input v-model="importRdForm.invoice_no" placeholder="发票号或凭证号（选填）" />
+          </el-form-item>
+        </div>
+        <el-form-item label="是否取得凭证">
+          <el-radio-group v-model="importRdForm.has_invoice">
+            <el-radio :label="true">是</el-radio>
+            <el-radio :label="false">否</el-radio>
+            <el-radio :label="null">未定</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="费用说明">
+          <el-input v-model="importRdForm.description" type="textarea" :rows="2" placeholder="费用说明（选填）" />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="importRdForm.notes" type="textarea" :rows="2" placeholder="备注信息（选填）" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="importRdDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleImportRdSubmit">归入研发</el-button>
       </template>
     </el-dialog>
 
@@ -731,6 +962,19 @@ import {
   updateInputInvoice as apiUpdateInputInvoice,
   deleteInputInvoice as apiDeleteInputInvoice,
 } from '../api/v19'
+import {
+  getRdExpenses,
+  getRdExpense,
+  createRdExpense,
+  updateRdExpense,
+  deleteRdExpense,
+  updateRdStatus,
+  getRdSummary,
+  exportRdExpenses,
+  getRdMeta,
+  importFromFinance,
+  unlinkFinanceRecord,
+} from '../api/rd_expense'
 
 const records = ref([])
 const fundingStats = ref({ funding_sources: {}, unclosed_advances: 0, unclosed_loans: 0 })
@@ -761,6 +1005,7 @@ const financeHelpKeyMap = {
   'fixed-costs': 'fixed_costs',
   'input-invoices': 'input_invoices',
   reconciliation: 'reconciliation',
+  'rd-expense': 'rd_expense',
 }
 const financeHelpKey = computed(() => financeHelpKeyMap[activeTab.value] || '')
 
@@ -783,6 +1028,34 @@ const selectedPeriod = ref(null)
 const reconciliationReport = ref(null)
 const reconciliationLoading = ref(false)
 const syncLoading = ref(false)
+
+const rdList = ref([])
+const rdLoading = ref(false)
+const rdTotal = ref(0)
+const rdPage = ref(1)
+const rdPageSize = ref(20)
+const rdYearFilter = ref(new Date().getFullYear())
+const rdQuarterFilter = ref(null)
+const rdCategoryFilter = ref(null)
+const rdStatusFilter = ref(null)
+const rdExporting = ref(false)
+const rdDialogVisible = ref(false)
+const rdEditingId = ref(null)
+const rdSummary = ref({})
+const rdForm = ref({ rd_category: '', rd_sub_category: null, amount: null, tax_amount: 0, expense_date: '', project_id: null, vendor_name: '', invoice_no: '', has_invoice: null, description: '', notes: '' })
+const rdProjectOptions = ref([])
+const rdCategoryLabelMap = { personnel: '人员人工费用', direct_input: '直接投入费用', depreciation: '折旧费用', amortization: '无形资产摊销', design_other: '设计/试验/其他费用', outsourced_rd: '委托外部研发' }
+const rdSubCategoryLabelMap = { salary: '工资薪金', social_insurance: '五险一金', welfare: '职工福利费', expert_fee: '外聘专家劳务费', material: '材料费', fuel_power: '燃料/动力费', test_equipment: '测试仪器购置/租赁', software_purchase: '软件采购', sample_prototype: '样机/样品试制费', equipment_depre: '仪器设备折旧', building_depre: '房屋建筑物折旧', soft_amort: '软件摊销', patent_amort: '专利/非专利技术摊销', design_fee: '新产品设计费', process_fee: '工艺规程制定费', test_fee: '检验试验费', travel: '研发差旅费', data_book: '资料翻译/图书资料费', other_rd: '其他研发费用', domestic_outsource: '委托境内机构', foreign_outsource: '委托境外机构' }
+const rdStatusLabelMap = { draft: '草稿', verified: '已核实', submitted: '已提交申报', rejected: '已驳回' }
+const rdSubCategoryOptions = computed(() => {
+  if (!rdForm.value.rd_category) return {}
+  const map = { personnel: { salary: '工资薪金', social_insurance: '五险一金', welfare: '职工福利费', expert_fee: '外聘专家劳务费' }, direct_input: { material: '材料费', fuel_power: '燃料/动力费', test_equipment: '测试仪器购置/租赁', software_purchase: '软件采购', sample_prototype: '样机/样品试制费' }, depreciation: { equipment_depre: '仪器设备折旧', building_depre: '房屋建筑物折旧' }, amortization: { soft_amort: '软件摊销', patent_amort: '专利/非专利技术摊销' }, design_other: { design_fee: '新产品设计费', process_fee: '工艺规程制定费', test_fee: '检验试验费', travel: '研发差旅费', data_book: '资料翻译/图书资料费', other_rd: '其他研发费用' }, outsourced_rd: { domestic_outsource: '委托境内机构', foreign_outsource: '委托境外机构' } }
+  return map[rdForm.value.rd_category] || {}
+})
+const rdYearOptions = computed(() => {
+  const currentYear = new Date().getFullYear()
+  return [currentYear - 2, currentYear - 1, currentYear, currentYear + 1]
+})
 
 const loadInvoiceLedger = async () => {
   invoiceLoading.value = true
@@ -979,14 +1252,28 @@ const handleCreateExport = async () => {
   }
   exportLoading.value = true
   try {
-    await createExportBatch({
-      export_type: exportForm.value.export_type,
-      start_date: exportDateRange.value[0],
-      end_date: exportDateRange.value[1],
-      target_format: exportForm.value.target_format
-    })
-    ElMessage.success('导出批次已创建')
-    loadExportBatches()
+    if (exportForm.value.export_type === 'rd_expenses') {
+      const blob = await exportRdExpenses({
+        start_date: exportDateRange.value[0],
+        end_date: exportDateRange.value[1],
+      })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `研发费用台账_${exportDateRange.value[0]}_${exportDateRange.value[1]}.xlsx`
+      a.click()
+      window.URL.revokeObjectURL(url)
+      ElMessage.success('研发费用台账导出成功')
+    } else {
+      await createExportBatch({
+        export_type: exportForm.value.export_type,
+        start_date: exportDateRange.value[0],
+        end_date: exportDateRange.value[1],
+        target_format: exportForm.value.target_format
+      })
+      ElMessage.success('导出批次已创建')
+      loadExportBatches()
+    }
   } catch {
     ElMessage.error('创建导出批次失败')
   } finally {
@@ -1046,7 +1333,7 @@ const handleSyncReconciliation = async () => {
   }
 }
 
-onMounted(() => { loadData(); loadContracts(); loadProjects(); loadFundingStats(); loadInvoiceLedger(); loadExportBatches(); loadReconciliationPeriods(); loadConsistencyCheck(); loadFcList(); loadIiList() })
+onMounted(() => { loadData(); loadContracts(); loadProjects(); loadFundingStats(); loadInvoiceLedger(); loadExportBatches(); loadReconciliationPeriods(); loadConsistencyCheck(); loadFcList(); loadIiList(); loadRdList(); loadRdSummary() })
 
 // ===== v1.9 数据核查 =====
 const consistencyData = ref({})
@@ -1131,6 +1418,131 @@ const handleIiSubmit = async () => {
     else { await apiCreateInputInvoice(iiForm.value); ElMessage.success('创建成功') }
     iiDialogVisible.value = false; loadIiList()
   } catch { /* */ }
+}
+
+const loadRdList = async () => {
+  rdLoading.value = true
+  try {
+    const params = { skip: (rdPage.value - 1) * rdPageSize.value, limit: rdPageSize.value }
+    if (rdYearFilter.value) params.year = rdYearFilter.value
+    if (rdQuarterFilter.value) params.quarter = rdQuarterFilter.value
+    if (rdCategoryFilter.value) params.rd_category = rdCategoryFilter.value
+    if (rdStatusFilter.value) params.status = rdStatusFilter.value
+    const { data } = await getRdExpenses(params)
+    rdList.value = data.items || []
+    rdTotal.value = data.total || 0
+  } catch { rdList.value = []; rdTotal.value = 0 } finally { rdLoading.value = false }
+}
+const loadRdSummary = async () => {
+  try {
+    const params = {}
+    if (rdYearFilter.value) params.year = rdYearFilter.value
+    if (rdQuarterFilter.value) params.quarter = rdQuarterFilter.value
+    const { data } = await getRdSummary(params)
+    rdSummary.value = data || {}
+  } catch { rdSummary.value = {} }
+}
+const openRdCreate = () => {
+  rdEditingId.value = null
+  rdForm.value = { rd_category: '', rd_sub_category: null, amount: null, tax_amount: 0, expense_date: '', project_id: null, vendor_name: '', invoice_no: '', has_invoice: null, description: '', notes: '' }
+  rdDialogVisible.value = true
+}
+const editRd = (row) => {
+  rdEditingId.value = row.id
+  rdForm.value = { ...row }
+  rdDialogVisible.value = true
+}
+const onRdCategoryChange = () => {
+  rdForm.value.rd_sub_category = null
+}
+const searchRdProjects = async (query) => {
+  if (!query) return
+  try {
+    const { data } = await api.get('/projects', { params: { search: query, limit: 20 } })
+    rdProjectOptions.value = data.items || []
+  } catch { rdProjectOptions.value = [] }
+}
+const handleRdSubmit = async () => {
+  if (!rdForm.value.rd_category || !rdForm.value.amount || !rdForm.value.expense_date) { ElMessage.warning('请填写费用大类、金额和日期'); return }
+  try {
+    if (rdEditingId.value) { await updateRdExpense(rdEditingId.value, rdForm.value); ElMessage.success('更新成功') }
+    else { await createRdExpense(rdForm.value); ElMessage.success('创建成功') }
+    rdDialogVisible.value = false; loadRdList(); loadRdSummary()
+  } catch (e) { ElMessage.error(e?.response?.data?.detail || '操作失败') }
+}
+const deleteRd = async (id) => {
+  try { await ElMessageBox.confirm('确定删除该研发费用记录？仅草稿状态可删除。', '确认', { type: 'warning' }); await deleteRdExpense(id); ElMessage.success('删除成功'); loadRdList(); loadRdSummary() } catch { /* */ }
+}
+const verifyRd = async (row) => {
+  try { await updateRdStatus(row.id, { status: 'verified' }); ElMessage.success('已核实'); loadRdList(); loadRdSummary() } catch (e) { ElMessage.error(e?.response?.data?.detail || '操作失败') }
+}
+const submitRd = async (row) => {
+  try { await updateRdStatus(row.id, { status: 'submitted' }); ElMessage.success('已提交申报'); loadRdList(); loadRdSummary() } catch (e) { ElMessage.error(e?.response?.data?.detail || '操作失败') }
+}
+const handleRdExport = async () => {
+  rdExporting.value = true
+  try {
+    const params = {}
+    if (rdYearFilter.value) params.year = rdYearFilter.value
+    if (rdQuarterFilter.value) params.quarter = rdQuarterFilter.value
+    const { data } = await exportRdExpenses(params)
+    const url = window.URL.createObjectURL(new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `研发费用台账_${rdYearFilter.value || '全部'}${rdQuarterFilter.value ? 'Q' + rdQuarterFilter.value : ''}.xlsx`
+    link.click(); window.URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch (e) { ElMessage.error(e?.response?.data?.detail || '导出失败') } finally { rdExporting.value = false }
+}
+
+// v2.3 从财务记录导入研发费用
+const importRdDialogVisible = ref(false)
+const importRdFinanceRecordId = ref(null)
+const importRdForm = ref({ rd_category: '', rd_sub_category: null, amount: null, tax_amount: 0, expense_date: '', project_id: null, vendor_name: '', invoice_no: '', has_invoice: null, description: '', notes: '' })
+const importRdSubCategoryOptions = computed(() => {
+  if (!importRdForm.value.rd_category) return {}
+  const map = { personnel: { salary: '工资薪金', social_insurance: '五险一金', welfare: '职工福利费', expert_fee: '外聘专家劳务费' }, direct_input: { material: '材料费', fuel_power: '燃料/动力费', test_equipment: '测试仪器购置/租赁', software_purchase: '软件采购', sample_prototype: '样机/样品试制费' }, depreciation: { equipment_depre: '仪器设备折旧', building_depre: '房屋建筑物折旧' }, amortization: { soft_amort: '软件摊销', patent_amort: '专利/非专利技术摊销' }, design_other: { design_fee: '新产品设计费', process_fee: '工艺规程制定费', test_fee: '检验试验费', travel: '研发差旅费', data_book: '资料翻译/图书资料费', other_rd: '其他研发费用' }, outsourced_rd: { domestic_outsource: '委托境内机构', foreign_outsource: '委托境外机构' } }
+  return map[importRdForm.value.rd_category] || {}
+})
+
+const openImportToRd = (row) => {
+  importRdFinanceRecordId.value = row.id
+  importRdForm.value = {
+    rd_category: '',
+    rd_sub_category: null,
+    amount: Math.abs(row.amount || 0),
+    tax_amount: 0,
+    expense_date: row.date || '',
+    project_id: row.related_project_id || null,
+    vendor_name: '',
+    invoice_no: row.invoice_no || '',
+    has_invoice: row.has_invoice === true ? true : row.has_invoice === false ? false : null,
+    description: row.description || '',
+    notes: ''
+  }
+  importRdDialogVisible.value = true
+}
+const onImportRdCategoryChange = () => {
+  importRdForm.value.rd_sub_category = null
+}
+const handleImportRdSubmit = async () => {
+  if (!importRdForm.value.rd_category || !importRdForm.value.amount || !importRdForm.value.expense_date) {
+    ElMessage.warning('请填写费用大类、金额和日期'); return
+  }
+  try {
+    await importFromFinance(importRdFinanceRecordId.value, importRdForm.value)
+    ElMessage.success('归入研发成功')
+    importRdDialogVisible.value = false
+    loadRdList(); loadRdSummary(); loadData()
+  } catch (e) { ElMessage.error(e?.response?.data?.detail || '归入研发失败') }
+}
+const handleUnlinkFinance = async (row) => {
+  try {
+    await ElMessageBox.confirm('确定解除与财务支出记录的关联？解除后可在"全部记录"中重新归入研发。', '确认', { type: 'warning' })
+    await unlinkFinanceRecord(row.id)
+    ElMessage.success('已解除关联')
+    loadRdList(); loadRdSummary(); loadData()
+  } catch { /* 取消 */ }
 }
 </script>
 
@@ -1471,4 +1883,26 @@ const handleIiSubmit = async () => {
 /* v1.9 进项发票 */
 .input-invoices-section { padding: 0; }
 .ii-toolbar { margin-bottom: 16px; }
+
+/* v2.3 研发费用台账 */
+.rd-section { padding: 0; }
+.rd-toolbar {
+  display: flex; gap: 10px; margin-bottom: 16px; align-items: center;
+  flex-wrap: wrap;
+}
+.rd-filter-group { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.rd-summary-bar {
+  display: flex; gap: 20px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 16px; padding: 14px 18px;
+  background: var(--el-fill-color-lighter); border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+}
+.rd-summary-item { display: flex; flex-direction: column; gap: 3px; }
+.rd-summary-item.primary .rd-summary-val { color: var(--el-color-primary); font-weight: 700; font-size: 17px; }
+.rd-summary-label { font-size: 12px; color: var(--text-secondary); }
+.rd-summary-val { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.rd-summary-cat-chip {
+  font-size: 12px; color: var(--text-tertiary); padding: 2px 10px;
+  background: var(--el-fill-color); border-radius: 4px;
+}
 </style>

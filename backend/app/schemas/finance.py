@@ -97,6 +97,9 @@ class FinanceRecordResponse(BaseModel):
     # v1.4 项目利润核算字段
     related_project_id: Optional[int] = None
 
+    # v2.3 研发费用关联标记（由 API 层填充）
+    is_rd_linked: Optional[bool] = None
+
     class Config:
         from_attributes = True
 

@@ -615,6 +615,7 @@ import {
 import { getDashboard, getCustomerFunnel, getProjectStatus, getTodos, completeTodo, dismissReminder, getRevenueTrend, backupDatabase, listBackups, verifyBackup, getCashflowForecast, getTaxSummary, getDashboardSummary, rebuildDashboardSummary } from '../api/dashboard'
 import { getProjects } from '../api/projects'
 import { getOverdueWarnings, getProfitOverview } from '../api/v19'
+import { getRdSummary } from '../api/rd_expense'
 import DashboardHeader from './dashboard/DashboardHeader.vue'
 import PageHelpDrawer from '../components/PageHelpDrawer.vue'
 import { useApiWarning } from '../composables/useApiWarning'
@@ -628,6 +629,18 @@ const lastRefreshTime = ref('')
 const metrics = ref({ monthly_income: 0, monthly_expense: 0, monthly_profit: 0, active_projects: 0, customer_conversion_rate: 0, quotation_conversion_rate: 0, sent_this_month: 0 })
 const financialMetrics = ref({ monthly_invoiced: 0, monthly_received: 0, accounts_receivable: 0, unbilled_amount: 0 })
 
+// v2.3 研发费用汇总
+const rdMetrics = ref({ total_amount: 0, total_count: 0, categories: {} })
+const rdYear = ref(new Date().getFullYear())
+const loadRdMetrics = async () => {
+  try {
+    const { data } = await getRdSummary({ year: rdYear.value })
+    rdMetrics.value = data
+  } catch {
+    rdMetrics.value = { total_amount: 0, total_count: 0, categories: {} }
+  }
+}
+
 const loadSummary = async () => {
   try {
     const { data } = await getDashboardSummary()
@@ -638,6 +651,9 @@ const loadSummary = async () => {
     summaryMetrics.value = {}
   }
 }
+
+// v2.3 合并研发费用数据到 summaryMetrics
+const rdExpenseTotal = computed(() => Number(rdMetrics.value.total_amount) || 0)
 
 const handleRefresh = async () => {
   refreshing.value = true
@@ -717,7 +733,7 @@ const monthlyCards = computed(() => [
   { key: 'unbilled_amount', label: '未开票金额', value: financialMetrics.value.unbilled_amount, prefix: '¥', color: '#06b6d4', glow: 'rgba(6,182,212,0.12)', icon: DataBoard, route: '/contracts' },
 ])
 
-const overviewCards = [
+const overviewCards = computed(() => [
   { key: 'client_count', label: '客户总数', color: '#10b981', glow: 'rgba(16,185,129,0.12)', icon: TrendCharts, route: '/customers' },
   { key: 'client_risk_high_count', label: '高风险客户', color: '#f43f5e', glow: 'rgba(244,63,94,0.10)', icon: Bell, route: '/customers' },
   { key: 'project_active_count', label: '进行中项目', color: '#8b5cf6', glow: 'rgba(139,92,246,0.12)', icon: DataBoard, route: '/projects' },
@@ -730,11 +746,16 @@ const overviewCards = [
   { key: 'delivery_in_progress_count', label: '交付中项目', color: '#06b6d4', glow: 'rgba(6,182,212,0.12)', icon: DataBoard, route: '/projects' },
   { key: 'delivery_completed_this_month', label: '本月完成', color: '#10b981', glow: 'rgba(16,185,129,0.12)', icon: TrendCharts, route: '/projects' },
   { key: 'agent_pending_count', label: '待处理建议', color: '#f59e0b', glow: 'rgba(245,158,11,0.12)', icon: Bell, route: '/agents/decision' },
-]
+  { key: 'rd_expense_total', label: `研发费用(${rdYear.value})`, color: '#06b6d4', glow: 'rgba(6,182,212,0.12)', icon: DataBoard, prefix: '¥', route: '/finances' },
+])
 
-const AMOUNT_KEYS = new Set(['contract_total_amount', 'finance_receivable_total', 'finance_overdue_total'])
+const AMOUNT_KEYS = new Set(['contract_total_amount', 'finance_receivable_total', 'finance_overdue_total', 'rd_expense_total'])
 
 const formatMetricValue = (key, value) => {
+  if (key === 'rd_expense_total') {
+    const v = Number(rdMetrics.value.total_amount) || 0
+    return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  }
   if (value === null || value === undefined) return '暂无数据'
   if (AMOUNT_KEYS.has(key)) return Number(value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return Number(value).toLocaleString('zh-CN')
@@ -1002,6 +1023,7 @@ onMounted(async () => {
   loadOverdueWarnings()
   loadProfitOverview()
   loadSummary()
+  loadRdMetrics()
 })
 </script>
 

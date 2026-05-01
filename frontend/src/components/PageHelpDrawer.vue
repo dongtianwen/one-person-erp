@@ -14,7 +14,7 @@
     <div class="help-drawer-content">
       <p class="help-description">{{ pageData.description }}</p>
       <div class="help-tips">
-        <div v-for="(tip, idx) in pageData.tips.slice(0, 5)" :key="idx" class="help-tip-item">
+        <div v-for="(tip, idx) in pageData.tips" :key="idx" class="help-tip-item">
           <span class="tip-bullet">{{ idx + 1 }}</span>
           <span class="tip-text">{{ tip }}</span>
         </div>

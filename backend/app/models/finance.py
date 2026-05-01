@@ -52,3 +52,6 @@ class FinanceRecord(Base, TimestampMixin):
     related_project = relationship("Project", foreign_keys=[related_project_id])
     related_record = relationship("FinanceRecord", foreign_keys=[related_record_id], remote_side="FinanceRecord.id")
     invoice = relationship("Invoice", foreign_keys=[invoice_id])
+
+    # v2.3 研发费用台账反向关联
+    rd_expenses = relationship("RdExpense", foreign_keys="RdExpense.finance_record_id", back_populates="finance_record")

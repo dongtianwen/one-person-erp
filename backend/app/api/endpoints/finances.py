@@ -13,6 +13,7 @@ from app.core.logging import get_logger
 
 logger = get_logger("finances")
 from app.models.finance import FinanceRecord
+from app.models.rd_expense import RdExpense
 from app.models.project import Project
 from app.crud import finance as finance_crud
 from app.crud import changelog as changelog_crud
@@ -103,8 +104,27 @@ async def list_finance_records(
         filters["status"] = status
 
     items, total = await finance_crud.finance_record.list(db, skip=skip, limit=limit, filters=filters)
+
+    # v2.3 批量查询研发费用关联状态
+    finance_ids = [f.id for f in items]
+    linked_ids = set()
+    if finance_ids:
+        result = await db.execute(
+            select(RdExpense.finance_record_id).where(
+                RdExpense.finance_record_id.in_(finance_ids),
+                RdExpense.is_deleted == False,
+            )
+        )
+        linked_ids = {row[0] for row in result.all()}
+
+    response_items = []
+    for f in items:
+        item = FinanceRecordResponse.model_validate(f)
+        item.is_rd_linked = f.id in linked_ids
+        response_items.append(item)
+
     return FinanceRecordListResponse(
-        items=[FinanceRecordResponse.model_validate(f) for f in items],
+        items=response_items,
         total=total,
         page=(skip // limit) + 1,
         page_size=limit,

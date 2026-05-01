@@ -51,6 +51,7 @@ from app.api.endpoints import (
     minutes,
     ledger,
     snapshots,
+    rd_expense,
 )
 from app.database import async_session
 from app.api.endpoints.auth import create_default_admin
@@ -199,6 +200,7 @@ app.include_router(qa.router, prefix="/api/v1/qa", tags=["经营问答"])
 app.include_router(reports.router, prefix="/api/v1/reports", tags=["深度报告"])
 app.include_router(minutes.router, prefix="/api/v1/minutes", tags=["会议纪要"])
 app.include_router(ledger.router, prefix="/api/v1", tags=["台账管理"])
+app.include_router(rd_expense.router, tags=["研发费用台账"])
 app.include_router(snapshots.router, prefix="/api/v1/snapshots", tags=["快照管理"])
 
 # v1.13 公司设置（乙方信息）

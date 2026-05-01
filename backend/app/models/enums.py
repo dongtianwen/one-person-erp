@@ -1,4 +1,4 @@
-"""枚举定义——包含 v1.0 ~ v1.7 所有枚举"""
+"""枚举定义——包含 v1.0 ~ v2.3 所有枚举"""
 from enum import Enum
 
 
@@ -192,3 +192,58 @@ class FixedCostCategory(str, Enum):
     SOFTWARE = "software"
     EQUIPMENT = "equipment"
     OTHER = "other"
+
+
+# v2.3 研发费用台账枚举
+class RdCategory(str, Enum):
+    """研发费用大类——对应税法六大类"""
+    PERSONNEL = "personnel"              # 人员人工费用
+    DIRECT_INPUT = "direct_input"        # 直接投入费用
+    DEPRECIATION = "depreciation"        # 折旧费用
+    AMORTIZATION = "amortization"        # 无形资产摊销
+    DESIGN_OTHER = "design_other"        # 设计/试验/其他费用
+    OUTSOURCED_RD = "outsourced_rd"      # 委托外部研发
+
+
+class RdSubCategory(str, Enum):
+    """研发费用子分类"""
+    # 人员人工
+    SALARY = "salary"
+    SOCIAL_INSURANCE = "social_insurance"
+    WELFARE = "welfare"
+    EXPERT_FEE = "expert_fee"
+
+    # 直接输入
+    MATERIAL = "material"
+    FUEL_POWER = "fuel_power"
+    TEST_EQUIPMENT = "test_equipment"
+    SOFTWARE_PURCHASE = "software_purchase"
+    SAMPLE_PROTOTYPE = "sample_prototype"
+
+    # 折旧
+    EQUIPMENT_DEPRE = "equipment_depre"
+    BUILDING_DEPRE = "building_depre"
+
+    # 无形资产摊销
+    SOFT_AMORT = "soft_amort"
+    PATENT_AMORT = "patent_amort"
+
+    # 设计/试验/其他
+    DESIGN_FEE = "design_fee"
+    PROCESS_FEE = "process_fee"
+    TEST_FEE = "test_fee"
+    TRAVEL = "travel"
+    DATA_BOOK = "data_book"
+    OTHER_RD = "other_rd"
+
+    # 委托外部研发
+    DOMESTIC_OUTSOURCE = "domestic_outsource"
+    FOREIGN_OUTSOURCE = "foreign_outsource"
+
+
+class RdStatus(str, Enum):
+    """研发费用审核状态"""
+    DRAFT = "draft"
+    VERIFIED = "verified"
+    SUBMITTED = "submitted"
+    REJECTED = "rejected"
